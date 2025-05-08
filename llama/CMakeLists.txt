@@ -32,6 +32,7 @@ add_definitions(-DNAPI_VERSION=7)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 set(LLAMA_BUILD_COMMON ON)
+set(LLAMA_CURL FF)
 
 if (MINGW)
     set(GGML_BACKEND_DL OFF)
@@ -69,6 +70,7 @@ include_directories(${NODE_ADDON_API_DIR} ${CMAKE_JS_INC})
 add_subdirectory("llama.cpp")
 include_directories("llama.cpp")
 include_directories("./llama.cpp/common")
+include_directories("./llama.cpp/src")
 
 unset(GPU_INFO_HEADERS)
 unset(GPU_INFO_SOURCES)
