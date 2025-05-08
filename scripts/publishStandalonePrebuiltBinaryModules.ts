@@ -13,7 +13,7 @@ const GH_RELEASE_REF = env.get("GH_RELEASE_REF")
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const packageDirectory = path.join(__dirname, "..", "packages");
-const packageScope = "@node-llama-cpp";
+const packageScope = "@aibrow/node-llama-cpp";
 const subPackagesDirectory = path.join(packageDirectory, packageScope);
 
 const argv = await yargs(hideBin(process.argv))

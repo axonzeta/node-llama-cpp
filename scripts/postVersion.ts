@@ -10,7 +10,7 @@ const currentVersion = packageJson.version;
 
 if (packageJson.optionalDependencies != null) {
     for (const packageName of Object.keys(packageJson.optionalDependencies)) {
-        if (!packageName.startsWith("@node-llama-cpp/"))
+        if (!packageName.startsWith("@aibrow/node-llama-cpp/"))
             continue;
 
         console.info(`Updating optional dependency "${packageName}" to version "${currentVersion}"`);
