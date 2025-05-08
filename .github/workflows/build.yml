@@ -534,7 +534,7 @@ jobs:
         id: set-npm-url
         run: |
           if [ -f .semanticRelease.npmPackage.deployedVersion.txt ]; then
-            echo "npm-url=https://www.npmjs.com/package/node-llama-cpp/v/$(cat .semanticRelease.npmPackage.deployedVersion.txt)" >> $GITHUB_OUTPUT
+            echo "npm-url=https://www.npmjs.com/package/@aibrow/node-llama-cpp/v/$(cat .semanticRelease.npmPackage.deployedVersion.txt)" >> $GITHUB_OUTPUT
           fi
       - name: Set package version to GITHUB_OUTPUT
         id: set-package-version
@@ -663,172 +663,172 @@ jobs:
           
           shopt -u nullglob
 
-  update-documentation-website:
-    name: Update documentation website
-    if: |
-      always() &&
-      github.event_name == 'push' &&
-      github.ref == 'refs/heads/master' &&
-      needs.build.result == 'success' &&
-      needs.resolve-next-release.result == 'success' &&
-      needs.resolve-next-release.outputs.next-version != '' &&
-      needs.resolve-next-release.outputs.next-version != 'false' && (
-        needs.release.result == 'skipped' || (
-          needs.release.result == 'success' &&
-          needs.release.outputs.package-version != ''
-        )
-      )
-    runs-on: ubuntu-latest
-    concurrency: update-documentation-website-${{ github.ref }}
-    environment:
-      name: Documentation website
-      url: "https://node-llama-cpp.withcat.ai"
-    permissions:
-      pages: write
-      id-token: write
-      contents: read
-    needs:
-      - build
-      - resolve-next-release
-      - release
+#  update-documentation-website:
+#    name: Update documentation website
+#    if: |
+#      always() &&
+#      github.event_name == 'push' &&
+#      github.ref == 'refs/heads/master' &&
+#      needs.build.result == 'success' &&
+#      needs.resolve-next-release.result == 'success' &&
+#      needs.resolve-next-release.outputs.next-version != '' &&
+#      needs.resolve-next-release.outputs.next-version != 'false' && (
+#        needs.release.result == 'skipped' || (
+#          needs.release.result == 'success' &&
+#          needs.release.outputs.package-version != ''
+#        )
+#      )
+#    runs-on: ubuntu-latest
+#    concurrency: update-documentation-website-${{ github.ref }}
+#    environment:
+#      name: Documentation website
+#      url: "https://node-llama-cpp.withcat.ai"
+#    permissions:
+#      pages: write
+#      id-token: write
+#      contents: read
+#    needs:
+#      - build
+#      - resolve-next-release
+#      - release
 
-    # All steps are copied to `update-documentation-website-no-release` job
-    # Can be replaced with YAML anchors when this will be supported by GitHub Actions:
-    # https://github.com/actions/runner/issues/1182#issuecomment-2317953582
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          lfs: true
-          fetch-depth: 0
-          fetch-tags: true
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-      - name: Install modules
-        run: npm ci
-      - uses: actions/download-artifact@v4
-        with:
-          path: artifacts
-      - name: Move artifacts
-        run: |
-          mv artifacts/build dist/
+#  #  All steps are copied to `update-documentation-website-no-release` job
+#  #  Can be replaced with YAML anchors when this will be supported by GitHub Actions:
+#  #  https://github.com/actions/runner/issues/1182#issuecomment-2317953582
+#    steps:
+#      - uses: actions/checkout@v4
+#        with:
+#          lfs: true
+#          fetch-depth: 0
+#          fetch-tags: true
+#      - uses: actions/setup-node@v4
+#        with:
+#          node-version: "20"
+#      - name: Install modules
+#        run: npm ci
+#      - uses: actions/download-artifact@v4
+#        with:
+#          path: artifacts
+#      - name: Move artifacts
+#        run: |
+#          mv artifacts/build dist/
           
-          cp -r artifacts/llama.cpp/llama.cpp llama/llama.cpp
+#          cp -r artifacts/llama.cpp/llama.cpp llama/llama.cpp
 
-          rm -f ./llama/binariesGithubRelease.json
-          mv artifacts/llama.cpp/binariesGithubRelease.json ./llama/binariesGithubRelease.json
+#          rm -f ./llama/binariesGithubRelease.json
+#          mv artifacts/llama.cpp/binariesGithubRelease.json ./llama/binariesGithubRelease.json
 
-          rm -f ./llama/llama.cpp.info.json
-          mv artifacts/llama.cpp/llama.cpp.info.json ./llama/llama.cpp.info.json
-      - name: Resolve docs version
-        env:
-          RELEASE_VERSION: ${{ needs.release.outputs.package-version || needs.resolve-next-release.outputs.next-version }}
-        run: |
-          if [ "$RELEASE_VERSION" == "false" ]; then
-            npx --no vite-node ./scripts/resolveLatestReleaseVersion.ts --saveVersionToFile ./docsVersion.txt
-          else
-            echo "$RELEASE_VERSION" > ./docsVersion.txt
-          fi
-      - name: Generate docs with updated version
-        env:
-          DOCS_URL_BASE: "/"
-        run: |
-          export DOCS_PACKAGE_VERSION="$(cat ./docsVersion.txt)"
-          echo "Package version: $DOCS_PACKAGE_VERSION"
+#          rm -f ./llama/llama.cpp.info.json
+#          mv artifacts/llama.cpp/llama.cpp.info.json ./llama/llama.cpp.info.json
+#      - name: Resolve docs version
+#        env:
+#          RELEASE_VERSION: ${{ needs.release.outputs.package-version || needs.resolve-next-release.outputs.next-version }}
+#        run: |
+#          if [ "$RELEASE_VERSION" == "false" ]; then
+#            npx --no vite-node ./scripts/resolveLatestReleaseVersion.ts --saveVersionToFile ./docsVersion.txt
+#          else
+#            echo "$RELEASE_VERSION" > ./docsVersion.txt
+#          fi
+#      - name: Generate docs with updated version
+#        env:
+#          DOCS_URL_BASE: "/"
+#        run: |
+#          export DOCS_PACKAGE_VERSION="$(cat ./docsVersion.txt)"
+#          echo "Package version: $DOCS_PACKAGE_VERSION"
           
-          npm run docs:build
-      - name: Upload docs to GitHub Pages
-        uses: actions/upload-pages-artifact@v3
-        with:
-          name: pages-docs
-          path: docs-site
-      - name: Deploy docs to GitHub Pages
-        uses: actions/deploy-pages@v4
-        with:
-          artifact_name: pages-docs
-      - name: Update feed
-        run: |
-          curl -X POST "https://pubsubhubbub.appspot.com/" -H "Content-Type: application/x-www-form-urlencoded" --data-urlencode "hub.mode=publish" --data-urlencode "hub.url=https://node-llama-cpp.withcat.ai/blog/feed.atom"
+#          npm run docs:build
+#      - name: Upload docs to GitHub Pages
+#        uses: actions/upload-pages-artifact@v3
+#        with:
+#          name: pages-docs
+#          path: docs-site
+#      - name: Deploy docs to GitHub Pages
+#        uses: actions/deploy-pages@v4
+#        with:
+#          artifact_name: pages-docs
+#      - name: Update feed
+#        run: |
+#          curl -X POST "https://pubsubhubbub.appspot.com/" -H "Content-Type: application/x-www-form-urlencoded" --data-urlencode "hub.mode=publish" --data-urlencode "hub.url=https://node-llama-cpp.withcat.ai/blog/feed.atom"
 
-  update-documentation-website-no-release:
-    name: Update documentation website - no version release
-    if: |
-      always() &&
-      github.event_name == 'push' &&
-      github.ref == 'refs/heads/master' &&
-      needs.build.result == 'success' &&
-      needs.resolve-next-release.result == 'success' &&
-      needs.resolve-next-release.outputs.next-version == 'false'
-    runs-on: ubuntu-latest
-    concurrency: update-documentation-website-${{ github.ref }}
-    environment:
-      name: Documentation website
-      url: "https://node-llama-cpp.withcat.ai"
-    permissions:
-      pages: write
-      id-token: write
-      contents: read
-    needs:
-      - build
-      - resolve-next-release
+#  update-documentation-website-no-release:
+#    name: Update documentation website - no version release
+#    if: |
+#      always() &&
+#      github.event_name == 'push' &&
+#      github.ref == 'refs/heads/master' &&
+#      needs.build.result == 'success' &&
+#      needs.resolve-next-release.result == 'success' &&
+#      needs.resolve-next-release.outputs.next-version == 'false'
+#    runs-on: ubuntu-latest
+#    concurrency: update-documentation-website-${{ github.ref }}
+#    environment:
+#      name: Documentation website
+#      url: "https://node-llama-cpp.withcat.ai"
+#    permissions:
+#      pages: write
+#      id-token: write
+#      contents: read
+#    needs:
+#      - build
+#      - resolve-next-release
 
-    # All steps are copied to `update-documentation-website` job
-    # Can be replaced with YAML anchors when this will be supported by GitHub Actions:
-    # https://github.com/actions/runner/issues/1182#issuecomment-2317953582
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          lfs: true
-          fetch-depth: 0
-          fetch-tags: true
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-      - name: Install modules
-        run: npm ci
-      - uses: actions/download-artifact@v4
-        with:
-          path: artifacts
-      - name: Move artifacts
-        run: |
-          mv artifacts/build dist/
+#  #  All steps are copied to `update-documentation-website` job
+#  #  Can be replaced with YAML anchors when this will be supported by GitHub Actions:
+#  #  https://github.com/actions/runner/issues/1182#issuecomment-2317953582
+#    steps:
+#      - uses: actions/checkout@v4
+#        with:
+#          lfs: true
+#          fetch-depth: 0
+#          fetch-tags: true
+#      - uses: actions/setup-node@v4
+#        with:
+#          node-version: "20"
+#      - name: Install modules
+#        run: npm ci
+#      - uses: actions/download-artifact@v4
+#        with:
+#          path: artifacts
+#      - name: Move artifacts
+#        run: |
+#          mv artifacts/build dist/
 
-          cp -r artifacts/llama.cpp/llama.cpp llama/llama.cpp
+#          cp -r artifacts/llama.cpp/llama.cpp llama/llama.cpp
 
-          rm -f ./llama/binariesGithubRelease.json
-          mv artifacts/llama.cpp/binariesGithubRelease.json ./llama/binariesGithubRelease.json
+#          rm -f ./llama/binariesGithubRelease.json
+#          mv artifacts/llama.cpp/binariesGithubRelease.json ./llama/binariesGithubRelease.json
 
-          rm -f ./llama/llama.cpp.info.json
-          mv artifacts/llama.cpp/llama.cpp.info.json ./llama/llama.cpp.info.json
-      - name: Resolve docs version
-        env:
-          RELEASE_VERSION: ${{ needs.release.outputs.package-version || needs.resolve-next-release.outputs.next-version }}
-        run: |
-          if [ "$RELEASE_VERSION" == "false" ]; then
-            npx --no vite-node ./scripts/resolveLatestReleaseVersion.ts --saveVersionToFile ./docsVersion.txt
-          else
-            echo "$RELEASE_VERSION" > ./docsVersion.txt
-          fi
-      - name: Generate docs with updated version
-        env:
-          DOCS_URL_BASE: "/"
-        run: |
-          export DOCS_PACKAGE_VERSION="$(cat ./docsVersion.txt)"
-          echo "Package version: $DOCS_PACKAGE_VERSION"
+#          rm -f ./llama/llama.cpp.info.json
+#          mv artifacts/llama.cpp/llama.cpp.info.json ./llama/llama.cpp.info.json
+#      - name: Resolve docs version
+#        env:
+#          RELEASE_VERSION: ${{ needs.release.outputs.package-version || needs.resolve-next-release.outputs.next-version }}
+#        run: |
+#          if [ "$RELEASE_VERSION" == "false" ]; then
+#            npx --no vite-node ./scripts/resolveLatestReleaseVersion.ts --saveVersionToFile ./docsVersion.txt
+#          else
+#            echo "$RELEASE_VERSION" > ./docsVersion.txt
+#          fi
+#      - name: Generate docs with updated version
+#        env:
+#          DOCS_URL_BASE: "/"
+#        run: |
+#          export DOCS_PACKAGE_VERSION="$(cat ./docsVersion.txt)"
+#          echo "Package version: $DOCS_PACKAGE_VERSION"
 
-          npm run docs:build
-      - name: Upload docs to GitHub Pages
-        uses: actions/upload-pages-artifact@v3
-        with:
-          name: pages-docs
-          path: docs-site
-      - name: Deploy docs to GitHub Pages
-        uses: actions/deploy-pages@v4
-        with:
-          artifact_name: pages-docs
-      - name: Update feed
-        run: |
-          curl -X POST "https://pubsubhubbub.appspot.com/" -H "Content-Type: application/x-www-form-urlencoded" --data-urlencode "hub.mode=publish" --data-urlencode "hub.url=https://node-llama-cpp.withcat.ai/blog/feed.atom"
+#          npm run docs:build
+#      - name: Upload docs to GitHub Pages
+#        uses: actions/upload-pages-artifact@v3
+#        with:
+#          name: pages-docs
+#          path: docs-site
+#      - name: Deploy docs to GitHub Pages
+#        uses: actions/deploy-pages@v4
+#        with:
+#          artifact_name: pages-docs
+#      - name: Update feed
+#        run: |
+#          curl -X POST "https://pubsubhubbub.appspot.com/" -H "Content-Type: application/x-www-form-urlencoded" --data-urlencode "hub.mode=publish" --data-urlencode "hub.url=https://node-llama-cpp.withcat.ai/blog/feed.atom"
 
 #  fix-broken-github-release:
 #    name: Fix broken GitHub release
