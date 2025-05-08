@@ -73,7 +73,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/withcatai/node-llama-cpp.git"
+    "url": "git+https://github.com/axonzeta/node-llama-cpp.git"
   },
   "keywords": [
     "llama",
