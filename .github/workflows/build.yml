@@ -506,8 +506,6 @@ jobs:
           mv artifacts/llama.cpp/gitRelease.bundle ./llama/gitRelease.bundle
           
           mv artifacts/build-templates templates/packed/
-          rm -f ./templates/package.json
-          rm -f ./templates/package-lock.json
           
           echo "Built binaries:"
           ls bins
