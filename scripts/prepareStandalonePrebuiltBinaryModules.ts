@@ -5,10 +5,11 @@ import {$, cd} from "zx";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const packageDirectory = path.join(__dirname, "..", "packages");
-const packageScope = "@aibrow/node-llama-cpp";
+const packageScope = "@aibrow";
 const subPackagesDirectory = path.join(packageDirectory, packageScope);
 
 for (const packageName of await fs.readdir(subPackagesDirectory)) {
+    if (!packageName.startsWith("node-llama-cpp-")) { continue }
     const packagePath = path.join(subPackagesDirectory, packageName);
     const packagePackageJsonPath = path.join(packagePath, "package.json");
 

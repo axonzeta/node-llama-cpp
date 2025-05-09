@@ -13,7 +13,7 @@ const GH_RELEASE_REF = env.get("GH_RELEASE_REF")
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const packageDirectory = path.join(__dirname, "..", "packages");
-const packageScope = "@aibrow/node-llama-cpp";
+const packageScope = "@aibrow";
 const subPackagesDirectory = path.join(packageDirectory, packageScope);
 
 const argv = await yargs(hideBin(process.argv))
@@ -28,6 +28,7 @@ if (packageVersion === "")
     throw new Error("packageVersion is empty");
 
 for (const packageName of await fs.readdir(subPackagesDirectory)) {
+    if (!packageName.startsWith("node-llama-cpp-")) { continue }
     const packagePath = path.join(subPackagesDirectory, packageName);
     const packagePackageJsonPath = path.join(packagePath, "package.json");
 
