@@ -511,8 +511,6 @@ jobs:
           ls bins
       - name: Move binaries to standalone prebuilt binary modules
         run: npx --no vite-node ./scripts/movePrebuiltBinariesToStandaloneModules.ts
-      - name: Setup tmate session
-        uses: mxschmitt/action-tmate@v3
       - name: Prepare standalone prebuilt binary modules
         run: npx --no vite-node ./scripts/prepareStandalonePrebuiltBinaryModules.ts
       - name: Add "postinstall" script to package.json
