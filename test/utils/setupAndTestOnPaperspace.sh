@@ -7,9 +7,9 @@
 # Run this script with this command:
 # bash -c "$(curl -fsSL https://raw.githubusercontent.com/withcatai/node-llama-cpp/master/test/utils/setupAndTestOnPaperspace.sh)"
 
-installationCommand='bash -c "$(curl -fsSL https://raw.githubusercontent.com/withcatai/node-llama-cpp/master/test/utils/setupAndTestOnPaperspace.sh)"'
+installationCommand='bash -c "$(curl -fsSL https://raw.githubusercontent.com/axonzeta/node-llama-cpp/master/test/utils/setupAndTestOnPaperspace.sh)"'
 
-defaultRepo="withcatai/node-llama-cpp"
+defaultRepo="axonzeta/node-llama-cpp"
 targetFolder="$HOME/workspace/test-node-llama-cpp"
 nodejsVersion="21"
 

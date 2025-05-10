@@ -125,7 +125,7 @@
   "license": "MIT",
   "preferUnplugged": true,
   "bugs": {
-    "url": "https://github.com/withcatai/node-llama-cpp/issues"
+    "url": "https://github.com/axonzeta/node-llama-cpp/issues"
   },
   "funding": {
     "type": "github",
@@ -222,16 +222,16 @@
     }
   },
   "optionalDependencies": {
-    "@aibrow/node-llama-cpp-linux-arm64": "0.1.0",
-    "@aibrow/node-llama-cpp-linux-armv7l": "0.1.0",
-    "@aibrow/node-llama-cpp-linux-x64": "0.1.0",
-    "@aibrow/node-llama-cpp-linux-x64-cuda": "0.1.0",
-    "@aibrow/node-llama-cpp-linux-x64-vulkan": "0.1.0",
-    "@aibrow/node-llama-cpp-mac-arm64-metal": "0.1.0",
-    "@aibrow/node-llama-cpp-mac-x64": "0.1.0",
-    "@aibrow/node-llama-cpp-win-arm64": "0.1.0",
-    "@aibrow/node-llama-cpp-win-x64": "0.1.0",
-    "@aibrow/node-llama-cpp-win-x64-cuda": "0.1.0",
-    "@aibrow/node-llama-cpp-win-x64-vulkan": "0.1.0"
+    "@aibrow/node-llama-cpp-linux-arm64": "1.1.2",
+    "@aibrow/node-llama-cpp-linux-armv7l": "1.1.2",
+    "@aibrow/node-llama-cpp-linux-x64": "1.1.2",
+    "@aibrow/node-llama-cpp-linux-x64-cuda": "1.1.2",
+    "@aibrow/node-llama-cpp-linux-x64-vulkan": "1.1.2",
+    "@aibrow/node-llama-cpp-mac-arm64-metal": "1.1.2",
+    "@aibrow/node-llama-cpp-mac-x64": "1.1.2",
+    "@aibrow/node-llama-cpp-win-arm64": "1.1.2",
+    "@aibrow/node-llama-cpp-win-x64": "1.1.2",
+    "@aibrow/node-llama-cpp-win-x64-cuda": "1.1.2",
+    "@aibrow/node-llama-cpp-win-x64-vulkan": "1.1.2"
   }
 }

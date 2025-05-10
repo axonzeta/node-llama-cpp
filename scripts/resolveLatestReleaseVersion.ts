@@ -11,7 +11,7 @@ const argv = await yargs(hideBin(process.argv))
 
 const {saveVersionToFile} = argv;
 
-const releaseRes = await fetch("https://api.github.com/repos/withcatai/node-llama-cpp/releases/latest");
+const releaseRes = await fetch("https://api.github.com/repos/axonzeta/node-llama-cpp/releases/latest");
 const release: Release = await releaseRes.json();
 
 let latestReleaseVersion = release.tag_name;

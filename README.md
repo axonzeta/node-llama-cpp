@@ -1,4 +1,10 @@
 <div align="center">
+    <h1>@aibrow/node-llama-cpp</h1>
+    <p>This is a fork of node-llama-cpp intended for use with [AiBrow](https://aibrow.ai).</p>
+    <p>Please use the official [withcatai/node-llama-cpp](https://github.com/withcatai/node-llama-cpp) github repo and [node-llama-cpp](https://www.npmjs.com/package/node-llama-cpp) npm package for your own projects.</p>
+    <p></p>
+</div>
+<div align="center">
     <a href="https://node-llama-cpp.withcat.ai" target="_blank"><img alt="node-llama-cpp Logo" src="https://raw.githubusercontent.com/withcatai/node-llama-cpp/master/assets/logo.v3.roundEdges.avif" width="360px" /></a>
     <h1>node-llama-cpp</h1>
     <p>Run AI models locally on your machine</p>
