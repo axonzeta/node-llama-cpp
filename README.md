@@ -1,7 +1,7 @@
 <div align="center">
     <h1>@aibrow/node-llama-cpp</h1>
-    <p>This is a fork of node-llama-cpp intended for use with [AiBrow](https://aibrow.ai).</p>
-    <p>Please use the official [withcatai/node-llama-cpp](https://github.com/withcatai/node-llama-cpp) github repo and [node-llama-cpp](https://www.npmjs.com/package/node-llama-cpp) npm package for your own projects.</p>
+    <p>This is a fork of <a href="https://github.com/withcatai/node-llama-cpp">node-llama-cpp</a> intended for use with <a href="https://aibrow.ai">AiBrow</a>.</p>
+    <p>Please use the official <a href="https://github.com/withcatai/node-llama-cpp">withcatai/node-llama-cpp</a> GitHub repo and <a href="https://www.npmjs.com/package/node-llama-cpp">node-llama-cpp</a> npm package for your own projects.</p>
     <p></p>
 </div>
 <div align="center">
