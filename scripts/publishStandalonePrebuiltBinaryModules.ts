@@ -28,7 +28,9 @@ if (packageVersion === "")
     throw new Error("packageVersion is empty");
 
 for (const packageName of await fs.readdir(subPackagesDirectory)) {
-    if (!packageName.startsWith("node-llama-cpp-")) { continue }
+    if (!packageName.startsWith("node-llama-cpp-")) {
+        continue;
+    }
     const packagePath = path.join(subPackagesDirectory, packageName);
     const packagePackageJsonPath = path.join(packagePath, "package.json");
 

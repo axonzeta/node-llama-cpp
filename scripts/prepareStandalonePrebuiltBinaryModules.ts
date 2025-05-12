@@ -9,7 +9,9 @@ const packageScope = "@aibrow";
 const subPackagesDirectory = path.join(packageDirectory, packageScope);
 
 for (const packageName of await fs.readdir(subPackagesDirectory)) {
-    if (!packageName.startsWith("node-llama-cpp-")) { continue }
+    if (!packageName.startsWith("node-llama-cpp-")) {
+        continue;
+    }
     const packagePath = path.join(subPackagesDirectory, packageName);
     const packagePackageJsonPath = path.join(packagePath, "package.json");
 
