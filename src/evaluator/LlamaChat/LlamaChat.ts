@@ -278,7 +278,23 @@ export type LLamaChatGenerateResponseOptions<Functions extends ChatModelFunction
          * A number between `0` (exclusive) and `1` (inclusive).
          */
         minimumOverlapPercentageToPreventContextShift?: number
-    }
+    },
+
+    /**
+     * Called as the model generates function calls with the generated parameters chunk for each function call.
+     *
+     * Useful for streaming the generated function call parameters as they're being generated.
+     * Only useful in specific use cases,
+     * such as showing the generated textual file content as it's being generated (note that doing this requires parsing incomplete JSON).
+     *
+     * The constructed text from all the params chunks of a given function call can be parsed as a JSON object,
+     * according to the function parameters schema.
+     *
+     * Each function call has its own `callIndex` you can use to distinguish between them.
+     *
+     * Only relevant when using function calling (via passing the `functions` option).
+     */
+    onFunctionCallParamsChunk?: (chunk: LlamaChatResponseFunctionCallParamsChunk) => void
 } & ({
     grammar?: LlamaGrammar,
     functions?: never,

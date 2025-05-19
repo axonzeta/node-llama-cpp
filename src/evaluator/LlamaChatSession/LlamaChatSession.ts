@@ -193,7 +193,23 @@ export type LLamaChatPromptOptions<Functions extends ChatSessionModelFunctions |
     /**
      * Custom stop triggers to stop the generation of the response when any of the provided triggers are found.
      */
-    customStopTriggers?: (LlamaText | string | (string | Token)[])[]
+    customStopTriggers?: (LlamaText | string | (string | Token)[])[],
+
+    /**
+     * Called as the model generates function calls with the generated parameters chunk for each function call.
+     *
+     * Useful for streaming the generated function call parameters as they're being generated.
+     * Only useful in specific use cases,
+     * such as showing the generated textual file content as it's being generated (note that doing this requires parsing incomplete JSON).
+     *
+     * The constructed text from all the params chunks of a given function call can be parsed as a JSON object,
+     * according to the function parameters schema.
+     *
+     * Each function call has its own `callIndex` you can use to distinguish between them.
+     *
+     * Only relevant when using function calling (via passing the `functions` option).
+     */
+    onFunctionCallParamsChunk?: (chunk: LlamaChatResponseFunctionCallParamsChunk) => void
 } & ({
     grammar?: LlamaGrammar,
     functions?: never,
@@ -205,7 +221,6 @@ export type LLamaChatPromptOptions<Functions extends ChatSessionModelFunctions |
     functions?: Functions | ChatSessionModelFunctions,
     documentFunctionParams?: boolean,
     maxParallelFunctionCalls?: number,
-
     /**
      * Called as the model generates function calls with the generated parameters chunk for each function call.
      *
@@ -342,6 +357,7 @@ export class LlamaChatSession {
     /** @internal */ private readonly _chatLock = {};
     /** @internal */ private _chatHistory: ChatHistoryItem[];
     /** @internal */ private _lastEvaluation?: LlamaChatResponse["lastEvaluation"];
+    /** @internal */ private _canUseContextWindowForCompletion: boolean = true;
     /** @internal */ private _chat: LlamaChat | null;
     /** @internal */ public _chatHistoryStateRef = {};
     /** @internal */ public readonly _preloadAndCompleteAbortControllers = new Set<AbortController>();
@@ -462,12 +478,13 @@ export class LlamaChatSession {
         const {responseText} = await this.promptWithMeta<Functions>(prompt, {
             // this is a workaround to allow passing both `functions` and `grammar`
             functions: functions as undefined,
+            grammar: grammar as undefined,
             documentFunctionParams: documentFunctionParams as undefined,
             maxParallelFunctionCalls: maxParallelFunctionCalls as undefined,
             onFunctionCallParamsChunk: onFunctionCallParamsChunk as undefined,
 
             onTextChunk, onToken, onResponseChunk, signal, stopOnAbortSignal, maxTokens,
-            temperature, minP, topK, topP, seed, grammar,
+            temperature, minP, topK, topP, seed,
             trimWhitespaceSuffix, responsePrefix, repeatPenalty, tokenBias, customStopTriggers
         });
 
@@ -517,7 +534,9 @@ export class LlamaChatSession {
 
             const supportsParallelFunctionCalling = this._chat.chatWrapper.settings.functions.parallelism != null;
             const [abortController, disposeAbortController] = wrapAbortSignal(signal);
-            let lastEvaluation = this._lastEvaluation;
+            let lastEvaluation = this._canUseContextWindowForCompletion
+                ? this._lastEvaluation
+                : undefined;
             let newChatHistory = appendUserMessageToChatHistory(this._chatHistory, prompt);
             let newContextWindowChatHistory = lastEvaluation?.contextWindow == null
                 ? undefined
@@ -721,6 +740,7 @@ export class LlamaChatSession {
                     }
 
                     this._lastEvaluation = lastEvaluation;
+                    this._canUseContextWindowForCompletion = true;
                     this._chatHistory = newChatHistory;
                     this._chatHistoryStateRef = {};
 
@@ -874,9 +894,10 @@ export class LlamaChatSession {
 
                 this._lastEvaluation = {
                     cleanHistory: this._chatHistory,
-                    contextWindow: lastEvaluation.contextWindow,
+                    contextWindow: asWithLastUserMessageRemoved(lastEvaluation.contextWindow),
                     contextShiftMetadata: lastEvaluation.contextShiftMetadata
                 };
+                this._canUseContextWindowForCompletion = this._chatHistory.at(-1)?.type === "user";
 
                 if (!stopOnAbortSignal && metadata.stopReason === "abort" && abortController.signal?.aborted)
                     throw abortController.signal.reason;
@@ -916,6 +937,7 @@ export class LlamaChatSession {
         this._chatHistory = structuredClone(chatHistory);
         this._chatHistoryStateRef = {};
         this._lastEvaluation = undefined;
+        this._canUseContextWindowForCompletion = false;
     }
 
     /** Clear the chat history and reset it to the initial state. */
