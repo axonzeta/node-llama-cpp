@@ -222,16 +222,16 @@
     }
   },
   "optionalDependencies": {
-    "@aibrow/node-llama-cpp-linux-arm64": "1.1.2",
-    "@aibrow/node-llama-cpp-linux-armv7l": "1.1.2",
-    "@aibrow/node-llama-cpp-linux-x64": "1.1.2",
-    "@aibrow/node-llama-cpp-linux-x64-cuda": "1.1.2",
-    "@aibrow/node-llama-cpp-linux-x64-vulkan": "1.1.2",
-    "@aibrow/node-llama-cpp-mac-arm64-metal": "1.1.2",
-    "@aibrow/node-llama-cpp-mac-x64": "1.1.2",
-    "@aibrow/node-llama-cpp-win-arm64": "1.1.2",
-    "@aibrow/node-llama-cpp-win-x64": "1.1.2",
-    "@aibrow/node-llama-cpp-win-x64-cuda": "1.1.2",
-    "@aibrow/node-llama-cpp-win-x64-vulkan": "1.1.2"
+    "@aibrow/node-llama-cpp-linux-arm64": "1.3.0",
+    "@aibrow/node-llama-cpp-linux-armv7l": "1.3.0",
+    "@aibrow/node-llama-cpp-linux-x64": "1.3.0",
+    "@aibrow/node-llama-cpp-linux-x64-cuda": "1.3.0",
+    "@aibrow/node-llama-cpp-linux-x64-vulkan": "1.3.0",
+    "@aibrow/node-llama-cpp-mac-arm64-metal": "1.3.0",
+    "@aibrow/node-llama-cpp-mac-x64": "1.3.0",
+    "@aibrow/node-llama-cpp-win-arm64": "1.3.0",
+    "@aibrow/node-llama-cpp-win-x64": "1.3.0",
+    "@aibrow/node-llama-cpp-win-x64-cuda": "1.3.0",
+    "@aibrow/node-llama-cpp-win-x64-vulkan": "1.3.0"
   }
 }
