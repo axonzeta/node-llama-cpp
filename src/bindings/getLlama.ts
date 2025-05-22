@@ -1,6 +1,5 @@
 import process from "process";
 import path from "path";
-import sea from "node:sea";
 import console from "console";
 import {createRequire} from "module";
 import {
@@ -915,9 +914,6 @@ function getShouldTestBinaryBeforeLoading({
     platformInfo: BinaryPlatformInfo,
     buildMetadata: BuildMetadataFile
 }) {
-    if (sea.isSea()) {
-        return false;
-    }
     if (platform === "linux") {
         if (isPrebuiltBinary)
             return true;
