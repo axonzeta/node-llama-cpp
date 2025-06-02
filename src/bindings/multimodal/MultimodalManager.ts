@@ -40,11 +40,17 @@ export class MultimodalManager {
     /**
      * Load an image from a buffer
      * 
+     * @param context The LlamaContext to use for multimodal processing
      * @param imageBuffer The image buffer data
      * @returns MultiBitmap instance
      */
-    public loadImageFromBuffer(imageBuffer: Buffer): MultiBitmap {
-        const bitmap = this._bindings.initMultimodalBitmapFromBuffer(imageBuffer);
+    public loadImageFromBuffer(context: LlamaContext, imageBuffer: Buffer): MultiBitmap {
+        const nativeContext = context._ctx;
+        if (!nativeContext) {
+            throw new Error("Invalid LlamaContext object: _ctx is missing. Cannot load image from buffer.");
+        }
+        
+        const bitmap = this._bindings.initMultimodalBitmapFromBuffer(nativeContext, imageBuffer);
         
         // Automatically generate and set a hash ID for the bitmap
         const hash = createImageHash(bitmap.getData());
@@ -86,7 +92,7 @@ export class MultimodalManager {
             
             // Load each image and add to collection
             for (const imageBuffer of images) {
-                const bitmap = this.loadImageFromBuffer(imageBuffer);
+                const bitmap = this.loadImageFromBuffer(context, imageBuffer);
                 bitmaps.addBitmap(bitmap);
                 createdBitmaps.push(bitmap);
             }
@@ -154,7 +160,7 @@ export class MultimodalManager {
             
             // Load each image and add to collection
             for (const imageBuffer of images) {
-                const bitmap = this.loadImageFromBuffer(imageBuffer);
+                const bitmap = this.loadImageFromBuffer(context, imageBuffer);
                 createdBitmaps.push(bitmap);
                 bitmaps.addBitmap(bitmap);
             }

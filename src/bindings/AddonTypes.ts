@@ -97,7 +97,7 @@ export type BindingModule = {
     },
     
     // Multimodal Functions
-    initMultimodalBitmapFromBuffer(buffer: Buffer): MultiBitmap;
+    initMultimodalBitmapFromBuffer(context: object, buffer: Buffer): MultiBitmap;
     createMultimodalBitmaps(): MultiBitmaps;
     multimodalTokenize(context: object, text: string, bitmaps: MultiBitmaps): MultimodalTokenizeResult;
     multimodalEvaluateChunks(context: object, tokenizeResult: MultimodalTokenizeResult): object;

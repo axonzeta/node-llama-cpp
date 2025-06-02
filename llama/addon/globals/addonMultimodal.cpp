@@ -6,6 +6,7 @@
 // Napi: Node.js API for native addons
 #include <napi.h>
 #include "mtmd.h" // Multimodal context header
+#include "mtmd-helper.h" // Multimodal helper functions
 #include "../AddonContext.h"
 
 // External C functions are expected to be declared in the included "mtmd.h"
@@ -32,23 +33,8 @@ public:
 
     // Constructor should be public for Napi::ObjectWrap
     MultiBitmap(const Napi::CallbackInfo& info) : Napi::ObjectWrap<MultiBitmap>(info) {
-        Napi::Env env = info.Env();
-        
-        if (info.Length() < 1 || !info[0].IsBuffer()) {
-            Napi::TypeError::New(env, "Buffer argument expected").ThrowAsJavaScriptException();
-            return;
-        }
-        
-        Napi::Buffer<uint8_t> buffer = info[0].As<Napi::Buffer<uint8_t>>();
-        // mtmd_helper_bitmap_init_from_buf returns mtmd_bitmap*
-        // The mtmd::bitmap C++ wrapper will take ownership of this pointer.
-        mtmd_bitmap* c_bitmap = mtmd_helper_bitmap_init_from_buf(buffer.Data(), buffer.Length());
-        
-        if (!c_bitmap) {
-            Napi::Error::New(env, "Failed to load image from buffer").ThrowAsJavaScriptException();
-            return;
-        }
-        this->bitmap_wrapper.ptr.reset(c_bitmap); // mtmd::bitmap takes ownership
+        // Constructor is now called without arguments from addonInitMultimodalBitmapFromBuffer
+        // The bitmap_wrapper.ptr will be set externally
     }
 
     // Destructor relies on mtmd::bitmap's destructor to free the underlying C bitmap
@@ -237,10 +223,57 @@ Napi::FunctionReference MultiBitmaps::constructor;
 
 Napi::Value addonInitMultimodalBitmapFromBuffer(const Napi::CallbackInfo& info) {
     Napi::Env env = info.Env();
-    // This will call MultiBitmap's constructor
-    // The constructor handles argument checking and throws if issues occur.
+    
+    // Check arguments - now expecting context and buffer
+    if (info.Length() < 2 || !info[0].IsObject() || !info[1].IsBuffer()) {
+        Napi::TypeError::New(env, "Expected context object and buffer as arguments").ThrowAsJavaScriptException();
+        return env.Undefined();
+    }
+    
     try {
-        return MultiBitmap::constructor.New({info[0]});
+        // Get the context
+        Napi::Object contextObj = info[0].As<Napi::Object>();
+        AddonContext* addonCtxInstance = nullptr;
+        try {
+            addonCtxInstance = Napi::ObjectWrap<AddonContext>::Unwrap(contextObj);
+        } catch (const Napi::Error& e) {
+            std::string errMsg = "Failed to unwrap AddonContext object for bitmap initialization: ";
+            errMsg += e.Message();
+            Napi::Error::New(env, errMsg).ThrowAsJavaScriptException();
+            return env.Undefined();
+        }
+
+        if (!addonCtxInstance) {
+            Napi::Error::New(env, "Unwrapped AddonContext instance is null for bitmap initialization.").ThrowAsJavaScriptException();
+            return env.Undefined();
+        }
+
+        if (!addonCtxInstance->multimodal_ctx) {
+            Napi::Error::New(env, "Multimodal context is not initialized. Please ensure the model was loaded with a multimodal projector.").ThrowAsJavaScriptException();
+            return env.Undefined();
+        }
+        
+        // Get the buffer data
+        Napi::Buffer<unsigned char> buffer = info[1].As<Napi::Buffer<unsigned char>>();
+        unsigned char* buf_data = buffer.Data();
+        size_t buf_len = buffer.Length();
+        
+        // Create MultiBitmap instance
+        Napi::Object bitmapObj = MultiBitmap::constructor.New({});
+        MultiBitmap* bitmap = Napi::ObjectWrap<MultiBitmap>::Unwrap(bitmapObj);
+        
+        // Initialize bitmap from buffer using the helper function
+        mtmd_bitmap* native_bitmap = mtmd_helper_bitmap_init_from_buf(addonCtxInstance->multimodal_ctx, buf_data, buf_len);
+        
+        if (!native_bitmap) {
+            Napi::Error::New(env, "Failed to initialize bitmap from buffer - mtmd_helper_bitmap_init_from_buf returned null. The image format may not be supported or the buffer may be corrupted.").ThrowAsJavaScriptException();
+            return env.Undefined();
+        }
+        
+        // Set the bitmap pointer in our wrapper
+        bitmap->bitmap_wrapper.ptr.reset(native_bitmap);
+        
+        return bitmapObj;
     } catch (const Napi::Error& e) {
         // Catch NAPI errors thrown from constructor and rethrow
         e.ThrowAsJavaScriptException();

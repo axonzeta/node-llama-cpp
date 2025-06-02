@@ -2,6 +2,7 @@
 
 #include <napi.h>
 #include "mtmd.h"
+#include "mtmd-helper.h"
 
 Napi::Object InitMultimodal(Napi::Env env, Napi::Object exports);
 
