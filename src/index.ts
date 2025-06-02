@@ -6,6 +6,10 @@ import {NoBinaryFoundError} from "./bindings/utils/NoBinaryFoundError.js";
 import {
     type LlamaGpuType, LlamaLogLevel, LlamaLogLevelGreaterThan, LlamaLogLevelGreaterThanOrEqual, LlamaVocabularyType
 } from "./bindings/types.js";
+// Multimodal exports
+import {
+    MultiBitmap, MultiBitmaps, MultimodalTokenizeResult, MultimodalManager
+} from "./bindings/multimodal/index.js";
 import {resolveModelFile, type ResolveModelFileOptions} from "./utils/resolveModelFile.js";
 import {LlamaModel, LlamaModelInfillTokens, type LlamaModelOptions, LlamaModelTokens} from "./evaluator/LlamaModel/LlamaModel.js";
 import {TokenAttributes} from "./evaluator/LlamaModel/utils/TokenAttributes.js";
@@ -319,5 +323,9 @@ export {
     type CombinedModelDownloaderOptions,
     jsonDumps,
     type OverridesObject,
-    experimentalChunkDocument
+    experimentalChunkDocument,
+    // Multimodal
+    type MultiBitmap,
+    type MultiBitmaps,
+    type MultimodalTokenizeResult
 };

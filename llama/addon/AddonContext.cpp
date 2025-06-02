@@ -3,6 +3,7 @@
 #include <cmath>
 #include "common/common.h"
 #include "llama.h"
+#include "mtmd.h" // For multimodal support
 
 #include "addonGlobals.h"
 #include "AddonModel.h"
@@ -107,6 +108,23 @@ class AddonContextLoadContextWorker : public Napi::AsyncWorker {
                 context->ctx = llama_init_from_model(context->model->model, context->context_params);
 
                 context->contextLoaded = context->ctx != nullptr && context->ctx != NULL;
+                
+                // Initialize multimodal context if projector path is available
+                if (context->contextLoaded && !context->multimodal_projector_path.empty()) {
+                    mtmd_context_params params = mtmd_context_params_default();
+                    context->multimodal_ctx = mtmd_init_from_file(
+                        context->multimodal_projector_path.c_str(), 
+                        context->model->model, 
+                        params
+                    );
+                    
+                    if (!context->multimodal_ctx) {
+                        // Don't fail context creation if multimodal init fails
+                        // Just log the error and continue without multimodal support
+                        fprintf(stderr, "[AddonContext] Warning: Failed to initialize multimodal context from %s\n", 
+                                context->multimodal_projector_path.c_str());
+                    }
+                }
             } catch (const std::exception& e) {
                 SetError(e.what());
             } catch(...) {
@@ -434,6 +452,11 @@ AddonContext::AddonContext(const Napi::CallbackInfo& info) : Napi::ObjectWrap<Ad
             context_params.no_perf = !(options.Get("performanceTracking").As<Napi::Boolean>().Value());
         }
     }
+
+    // Store multimodal projector path if available for later initialization
+    if (!model->multimodalProjectorPath.empty()) {
+        multimodal_projector_path = model->multimodalProjectorPath;
+    }
 }
 AddonContext::~AddonContext() {
     dispose();
@@ -445,6 +468,13 @@ void AddonContext::dispose() {
     }
 
     disposed = true;
+    
+    // Clean up multimodal context if it exists
+    if (multimodal_ctx) {
+        mtmd_free(multimodal_ctx);
+        multimodal_ctx = nullptr;
+    }
+    
     if (contextLoaded) {
         contextLoaded = false;
         llama_free(ctx);

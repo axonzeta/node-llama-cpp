@@ -4,6 +4,9 @@
 #include "addonGlobals.h"
 #include "AddonSampler.h"
 
+// Forward declaration for multimodal context
+struct mtmd_context;
+
 class AddonContext : public Napi::ObjectWrap<AddonContext> {
     public:
         AddonModel* model;
@@ -19,6 +22,10 @@ class AddonContext : public Napi::ObjectWrap<AddonContext> {
         bool contextLoaded = false;
 
         bool disposed = false;
+
+        // Multimodal context (optional, only initialized if multimodal projector is provided)
+        mtmd_context* multimodal_ctx = nullptr;
+        std::string multimodal_projector_path;
 
         AddonContext(const Napi::CallbackInfo& info);
         ~AddonContext();

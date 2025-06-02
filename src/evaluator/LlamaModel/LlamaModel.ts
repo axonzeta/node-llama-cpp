@@ -28,6 +28,12 @@ export type LlamaModelOptions = {
     modelPath: string,
 
     /**
+     * Path to the multimodal projector file for image processing with multimodal models.
+     * Required to enable multimodal capabilities.
+     */
+    multimodalProjectorPath?: string,
+
+    /**
      * Number of layers to store in VRAM.
      * - **`"auto"`** - adapt to the current VRAM state and try to fit as many layers as possible in it.
      * Takes into account the VRAM required to create a context with a `contextSize` set to `"auto"`.
@@ -158,6 +164,7 @@ export class LlamaModel {
     /** @internal */ private readonly _defaultContextFlashAttentionOptionEnabled: boolean;
     /** @internal */ private readonly _defaultContextFlashAttention: boolean;
     /** @internal */ private readonly _flashAttentionSupported: boolean;
+    /** @internal */ private readonly _multimodalProjectorPath?: string;
     /** @internal */ private readonly _loraAdapters = new Map<string, AddonModelLora>();
     /** @internal */ private _typeDescription?: ModelTypeDescription;
     /** @internal */ private _trainContextSize?: number;
@@ -168,7 +175,7 @@ export class LlamaModel {
     public readonly onDispose = new EventRelay<void>();
 
     private constructor({
-        modelPath, gpuLayers, vocabOnly = false, useMmap, useMlock, checkTensors, onLoadProgress, loadSignal, metadataOverrides
+        modelPath, gpuLayers, vocabOnly = false, useMmap, useMlock, checkTensors, onLoadProgress, loadSignal, metadataOverrides, multimodalProjectorPath
     }: LlamaModelOptions & {
         gpuLayers: number
     }, {
@@ -197,11 +204,13 @@ export class LlamaModel {
         this._defaultContextFlashAttentionOptionEnabled = _defaultContextFlashAttentionOptionEnabled;
         this._defaultContextFlashAttention = _defaultContextFlashAttention;
         this._flashAttentionSupported = _flashAttentionSupported;
+        this._multimodalProjectorPath = multimodalProjectorPath;
         const overridesList = ggufMetadataOverridesToList(metadataOverrides);
         this._model = new this._llama._bindings.AddonModel(this._modelPath, removeNullFields({
             addonExports: this._llama._bindings,
             gpuLayers,
             vocabOnly: this._vocabOnly,
+            multimodalProjectorPath: this._multimodalProjectorPath,
             useMmap,
             useMlock: _llama.supportsMlock
                 ? useMlock
@@ -616,8 +625,12 @@ export class LlamaModel {
     }
 
     /** The size of an embedding vector the model can produce */
-    public get embeddingVectorSize(): number {
-        this._ensureNotDisposed();
+    public get embeddingVectorSize() {
+        if (this._disposedState.disposed)
+            throw new DisposedError();
+
+        if (!this._model.isInitialized()) // Ensure this call is valid
+            return undefined;
 
         if (this._embeddingVectorSize == null)
             this._embeddingVectorSize = this._model.getEmbeddingVectorSize();
@@ -625,19 +638,100 @@ export class LlamaModel {
         return this._embeddingVectorSize;
     }
 
-    public get vocabularyType(): LlamaVocabularyType {
+    /**
+     * Whether multimodal capabilities (like image processing) are supported by this model
+     */
+    public get multimodalSupported() {
+        if (this._disposedState.disposed)
+            throw new DisposedError();
+            
+        return this._multimodalProjectorPath != null;
+    }
+    
+    /**
+     * The path to the multimodal projector file, if any
+     */
+    public get multimodalProjectorPath() {
+        return this._multimodalProjectorPath;
+    }
+
+    /**
+     * The vocabulary type of the model
+     */
+    public get vocabularyType() {
         this._ensureNotDisposed();
 
-        if (this._vocabularyType == null) {
-            const vocabType = this._model.getVocabularyType();
-            this._vocabularyType = LlamaVocabularyTypeValues[vocabType];
+        if (this._vocabularyType === undefined) {
+            const vocabTypeNumber = this._model.getVocabularyType(); // vocabTypeNumber is number
 
-            if (this._vocabularyType == null) {
-                console.warn(getConsoleLogPrefix() + "Unknown vocabulary type:", vocabType);
+            // Assuming vocabTypeNumber from C++ corresponds to an index in LlamaVocabularyTypeValues
+            // or a direct known mapping.
+            // LlamaVocabularyTypeValues = ["none", "spm", "bpe", "wpm"]
+            // Addon returns: 0 for SPM, 1 for BPE (from llama.h)
+            // Need to reconcile with LlamaVocabularyTypeValues and actual enum LlamaVocabularyType
+            
+            // From llama.h:
+            // LLAMA_VOCAB_TYPE_SPM = 0, // SentencePiece
+            // LLAMA_VOCAB_TYPE_BPE = 1, // Byte Pair Encoding
+            // LLAMA_VOCAB_TYPE_WPM = 2, // WordPiece
+            // LLAMA_VOCAB_TYPE_UGM = 3, // Unigram
+
+            // From LlamaVocabularyType enum in types.ts:
+            // none = "none", spm = "spm", bpe = "bpe", wpm = "wpm", ugm = "ugm", rwkv = "rwkv"
+            // LlamaVocabularyTypeValues = ["none", "spm", "bpe", "wpm"] - this seems to be a subset or outdated
+
+            let resolvedType: LlamaVocabularyType | undefined = undefined;
+
+            switch (vocabTypeNumber) {
+                case 0: // LLAMA_VOCAB_TYPE_SPM in C++
+                    resolvedType = LlamaVocabularyType.spm;
+                    break;
+                case 1: // LLAMA_VOCAB_TYPE_BPE in C++
+                    resolvedType = LlamaVocabularyType.bpe;
+                    break;
+                case 2: // LLAMA_VOCAB_TYPE_WPM in C++
+                    // Check if LlamaVocabularyType.wpm exists, otherwise map to a known value or none
+                    if (Object.values(LlamaVocabularyType).includes(LlamaVocabularyType.wpm)) {
+                        resolvedType = LlamaVocabularyType.wpm;
+                    } else {
+                        // If 'wpm' is not in the current enum (e.g. due to LlamaVocabularyTypeValues being restrictive)
+                        // we might need to default or handle this case.
+                        // For now, let's assume if it's not in LlamaVocabularyTypeValues, it's effectively 'none' for this context
+                        // or we log an issue.
+                        if (LlamaVocabularyTypeValues.includes(LlamaVocabularyType.wpm)) {
+                             resolvedType = LlamaVocabularyType.wpm;
+                        } else {
+                            console.warn("Vocabulary type WPM (2) from C++ not directly in LlamaVocabularyTypeValues, mapping to none or spm as fallback.");
+                            resolvedType = LlamaVocabularyType.none; // Or perhaps .spm if that's a safer default
+                        }
+                    }
+                    break;
+                case 3: // LLAMA_VOCAB_TYPE_UGM in C++
+                    if (Object.values(LlamaVocabularyType).includes(LlamaVocabularyType.ugm)) {
+                        resolvedType = LlamaVocabularyType.ugm;
+                    } else {
+                         console.warn("Vocabulary type UGM (3) from C++ not in LlamaVocabularyType enum or LlamaVocabularyTypeValues.");
+                         resolvedType = LlamaVocabularyType.none;
+                    }
+                    break;
+                // RWKV might have a different number, or not be covered by getVocabularyType() in the same way
+                default:
+                    console.error("Unexpected vocabulary type number from C++:", vocabTypeNumber);
+                    resolvedType = LlamaVocabularyType.none;
+            }
+
+            if (resolvedType && LlamaVocabularyTypeValues.includes(resolvedType as any)) {
+                this._vocabularyType = resolvedType;
+            } else if (resolvedType) {
+                // If resolvedType is valid according to the broader LlamaVocabularyType enum, but not in LlamaVocabularyTypeValues
+                // this indicates a mismatch. For safety, we could default or log.
+                console.warn(`Resolved vocabulary type "${resolvedType}" is not in LlamaVocabularyTypeValues. Defaulting to none.`);
+                this._vocabularyType = LlamaVocabularyType.none;
+            } else {
                 this._vocabularyType = LlamaVocabularyType.none;
             }
         }
-
+        
         return this._vocabularyType;
     }
 

@@ -16,6 +16,7 @@ class AddonModel : public Napi::ObjectWrap<AddonModel> {
         AddonModelData* data;
 
         std::string modelPath;
+        std::string multimodalProjectorPath; // Add multimodal projector path
         bool modelLoaded = false;
         bool abortModelLoad = false;
         bool model_load_stopped = false;

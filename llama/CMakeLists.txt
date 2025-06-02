@@ -76,11 +76,13 @@ execute_process(COMMAND node -p "require('node-addon-api').include.slice(1,-1)"
 include_directories(${NODE_ADDON_API_DIR} ${CMAKE_JS_INC})
 
 add_subdirectory("llama.cpp")
+add_subdirectory("llama.cpp/tools/mtmd")
 include_directories("llama.cpp")
 include_directories("./llama.cpp/common")
 
 # This is needed to use methods in "llama-grammar.h" and "unicode.h"
 target_include_directories(llama PUBLIC "./llama.cpp/src")
+target_include_directories(llama PUBLIC "./llama.cpp/tools/mtmd")
 
 unset(GPU_INFO_HEADERS)
 unset(GPU_INFO_SOURCES)
@@ -117,6 +119,7 @@ set_target_properties(${PROJECT_NAME} PROPERTIES PREFIX "" SUFFIX ".node")
 target_link_libraries(${PROJECT_NAME} ${CMAKE_JS_LIB})
 target_link_libraries(${PROJECT_NAME} "llama")
 target_link_libraries(${PROJECT_NAME} "common")
+target_link_libraries(${PROJECT_NAME} "mtmd")
 
 if (DEFINED GPU_INFO_EXTRA_LIBS)
     target_link_libraries(${PROJECT_NAME} ${GPU_INFO_EXTRA_LIBS})

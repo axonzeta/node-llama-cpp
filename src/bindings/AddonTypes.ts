@@ -1,4 +1,5 @@
 import {Token} from "../types.js";
+import {MultiBitmap, MultiBitmaps, MultimodalTokenizeResult} from "./multimodal/types.js";
 
 
 export type BindingModule = {
@@ -7,6 +8,7 @@ export type BindingModule = {
             addonExports?: BindingModule,
             gpuLayers?: number,
             vocabOnly?: boolean,
+            multimodalProjectorPath?: string,
             useMmap?: boolean,
             useMlock?: boolean,
             checkTensors?: boolean,
@@ -84,11 +86,27 @@ export type BindingModule = {
     },
     init(): Promise<void>,
     loadBackends(forceLoadLibrariesSearchPath?: string): void,
-    dispose(): Promise<void>
+    dispose(): Promise<void>,
+
+    // Multimodal Types
+    MultiBitmap: {
+        new (buffer: Buffer): MultiBitmap;
+    },
+    MultiBitmaps: {
+        new (): MultiBitmaps;
+    },
+    
+    // Multimodal Functions
+    initMultimodalBitmapFromBuffer(buffer: Buffer): MultiBitmap;
+    createMultimodalBitmaps(): MultiBitmaps;
+    multimodalTokenize(context: object, text: string, bitmaps: MultiBitmaps): MultimodalTokenizeResult;
+    multimodalEvaluateChunks(context: object, tokenizeResult: MultimodalTokenizeResult): object;
+    multimodalTokenizeAndEvaluate(context: object, text: string, bitmaps: MultiBitmaps): object;
 };
 
 export type AddonModel = {
     init(): Promise<boolean>,
+    isInitialized(): boolean, // Added this line
     loadLora(lora: AddonModelLora): Promise<void>,
     abortActiveModelLoad(): void,
     dispose(): Promise<void>,
@@ -110,7 +128,7 @@ export type AddonModel = {
     getTokenString(token: number): string,
     getTokenAttributes(token: Token): number,
     isEogToken(token: Token): boolean,
-    getVocabularyType(): number,
+    getVocabularyType(): number, // Ensure this returns number
     shouldPrependBosToken(): boolean,
     shouldAppendEosToken(): boolean,
     getModelSize(): number

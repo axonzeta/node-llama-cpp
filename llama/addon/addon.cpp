@@ -7,6 +7,7 @@
 #include "AddonContext.h"
 #include "globals/addonLog.h"
 #include "globals/addonProgress.h"
+#include "globals/addonMultimodal.h"
 #include "globals/getGpuInfo.h"
 #include "globals/getSwapInfo.h"
 #include "globals/getMemoryInfo.h"
@@ -243,6 +244,10 @@ Napi::Object registerCallback(Napi::Env env, Napi::Object exports) {
         Napi::PropertyDescriptor::Function("loadBackends", addonLoadBackends),
         Napi::PropertyDescriptor::Function("init", addonInit),
         Napi::PropertyDescriptor::Function("dispose", addonDispose),
+        // Multimodal functions
+        Napi::PropertyDescriptor::Function("initMultimodalBitmapFromBuffer", addonInitMultimodalBitmapFromBuffer),
+        Napi::PropertyDescriptor::Function("createMultimodalBitmaps", addonCreateMultimodalBitmaps),
+        Napi::PropertyDescriptor::Function("multimodalTokenize", addonMultimodalTokenize),
     });
     AddonModel::init(exports);
     AddonModelLora::init(exports);
@@ -250,6 +255,7 @@ Napi::Object registerCallback(Napi::Env env, Napi::Object exports) {
     AddonGrammarEvaluationState::init(exports);
     AddonContext::init(exports);
     AddonSampler::init(exports);
+    InitMultimodal(exports.Env(), exports);
 
     llama_log_set(addonLlamaCppLogCallback, nullptr);
 

@@ -13,6 +13,7 @@ import {getLlamaClasses, LlamaClasses} from "../utils/getLlamaClasses.js";
 import {BindingModule} from "./AddonTypes.js";
 import {BuildGpu, BuildMetadataFile, LlamaGpuType, LlamaLocks, LlamaLogLevel, LlamaLogLevelGreaterThanOrEqual} from "./types.js";
 import {MemoryOrchestrator, MemoryReservation} from "./utils/MemoryOrchestrator.js";
+import {MultimodalManager} from "./multimodal/index.js";
 
 export const LlamaLogLevelToAddonLogLevel: ReadonlyMap<LlamaLogLevel, number> = new Map([
     [LlamaLogLevel.disabled, 0],
@@ -34,6 +35,7 @@ export class Llama {
     /** @internal */ public readonly _backendDisposeGuard = new DisposeGuard();
     /** @internal */ public readonly _memoryLock = {};
     /** @internal */ public readonly _consts: ReturnType<BindingModule["getConsts"]>;
+    /** @internal */ public readonly _multimodalManager: MultimodalManager;
     /** @internal */ public readonly _vramOrchestrator: MemoryOrchestrator;
     /** @internal */ public _vramPadding: MemoryReservation;
     /** @internal */ public readonly _ramOrchestrator: MemoryOrchestrator;
@@ -139,6 +141,9 @@ export class Llama {
 
         this._onExit = this._onExit.bind(this);
         process.on("exit", this._onExit);
+        
+        // Initialize multimodal manager
+        this._multimodalManager = new MultimodalManager(this._bindings);
     }
 
     public async dispose() {
@@ -201,6 +206,18 @@ export class Llama {
      */
     public get maxThreads() {
         return this._threadsSplitter.maxThreads;
+    }
+
+    /**
+     * Access the multimodal functionality for image processing with LLMs
+     * 
+     * @returns The MultimodalManager instance
+     */
+    public get multimodal() {
+        if (this._disposed)
+            throw new DisposedError();
+            
+        return this._multimodalManager;
     }
 
     public set maxThreads(value: number) {
