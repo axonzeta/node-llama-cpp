@@ -127,10 +127,12 @@ export class MultimodalManager {
 
         return this._bindings.multimodalEvaluateChunks(nativeContext, tokenizeResult);
     }    /**
-     * Tokenizes multimodal input and evaluates it on the context
-     * @param context - The LlamaContext to evaluate on
-     * @param text - The text input to tokenize with multimodal content
-     * @param images - Array of image buffers to include in the multimodal input
+     * Combined tokenize and evaluate function that properly handles multimodal input
+     * This is the recommended approach for multimodal processing
+     * 
+     * @param context The LlamaContext to use
+     * @param text The text prompt to process
+     * @param images Array of image buffers to include
      * @returns Evaluation result with success status and metadata
      */
     public tokenizeAndEvaluate(context: LlamaContext, text: string, images: Buffer[]): object {
@@ -161,12 +163,9 @@ export class MultimodalManager {
             const result = this._bindings.multimodalTokenizeAndEvaluate(nativeContext, text, bitmaps);
             
             // Record the processed tokens for sequence inheritance
-            if (result && typeof result === 'object' && 'tokensProcessed' in result && 'newSequenceLength' in result) {
+            if (result && typeof result === 'object' && 'tokensProcessed' in result) {
                 const tokensProcessed = (result as any).tokensProcessed;
-                const newSequenceLength = (result as any).newSequenceLength;
-                
-                if (typeof tokensProcessed === 'number' && tokensProcessed > 0 && 
-                    typeof newSequenceLength === 'number' && newSequenceLength >= 0) {
+                if (typeof tokensProcessed === 'number' && tokensProcessed > 0) {
                     // Create placeholder tokens to represent the multimodal content
                     // We use negative values to distinguish them from regular tokens
                     const placeholderTokens: Token[] = [];
@@ -176,9 +175,8 @@ export class MultimodalManager {
                         placeholderTokens.push((-1000 - i) as Token);
                     }
                     
-                    // Record these tokens so sequences can inherit them with correct position
-                    // Use newSequenceLength as the actual context position after multimodal processing
-                    context._recordContextLevelTokens(placeholderTokens, newSequenceLength);
+                    // Record these tokens so sequences can inherit them
+                    context._recordContextLevelTokens(placeholderTokens);
                 }
             }
             

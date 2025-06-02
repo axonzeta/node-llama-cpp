@@ -784,15 +784,9 @@ export class LlamaContext {
     }
 
     /** @internal */
-    public _recordContextLevelTokens(tokens: Token[], actualContextPosition?: number): void {
+    public _recordContextLevelTokens(tokens: Token[]): void {
         this._contextLevelTokens.push(...tokens);
-        // If actualContextPosition is provided, use it as the exact position
-        // Otherwise, increment by token count (for backward compatibility)
-        if (actualContextPosition !== undefined) {
-            this._contextLevelTokenIndex = actualContextPosition;
-        } else {
-            this._contextLevelTokenIndex += tokens.length;
-        }
+        this._contextLevelTokenIndex += tokens.length;
     }
 
     /** @internal */
@@ -1372,7 +1366,7 @@ export class LlamaContextSequence {
             _noSampling = false
         } = options;
 
-        if (this._tokenPredictor != null && !_noSampling && tokens.length > 0) {
+        if (this._tokenPredictor != null && !_noSampling && tokens.length > 0)
             return this._speculativeEvaluate(tokens, metadata, {
                 temperature,
                 minP,
@@ -1390,7 +1384,6 @@ export class LlamaContextSequence {
                 yieldEogToken,
                 tokenPredictor: this._tokenPredictor
             });
-        }
 
         return this._evaluate(tokens, metadata, {
             temperature,
@@ -1791,9 +1784,8 @@ export class LlamaContextSequence {
 
         let evalTokens = tokens;
 
-        if (evalTokens.length === 0 && !generateNewTokens) {
+        if (evalTokens.length === 0)
             return;
-        }
 
         await this._abortTokenPredictor(false, true);
 
@@ -1813,15 +1805,8 @@ export class LlamaContextSequence {
                 try {
                     const logitsArray: (true | undefined)[] = [];
 
-                    if (generateNewTokens) {
-                        if (evalTokens.length > 0) {
-                            logitsArray[evalTokens.length - 1] = true;
-                        } else {
-                            // When there are no tokens to evaluate but we want to generate,
-                            // we need logits for the current context state (position 0)
-                            logitsArray[0] = true;
-                        }
-                    }
+                    if (generateNewTokens)
+                        logitsArray[evalTokens.length - 1] = true;
 
                     // Evaluate to get the next token.
                     const decodeResult = await this._decodeTokens(
@@ -1863,10 +1848,7 @@ export class LlamaContextSequence {
                         }
                     );
 
-                    // When evalTokens is empty, we get logits at position 0, otherwise at the last token position
-                    const lastDecodeResult = evalTokens.length > 0 
-                        ? decodeResult[evalTokens.length - 1]
-                        : decodeResult[0];
+                    const lastDecodeResult = decodeResult[evalTokens.length - 1];
 
                     if (lastDecodeResult instanceof Array) {
                         const [token, probabilities, confidence] = lastDecodeResult;
@@ -2272,23 +2254,6 @@ export class LlamaContextSequence {
         const normalizedLogitDataMapper = (batchLogitIndex: BatchLogitIndex, contextStateTokenIndex: number) => {
             return logitDataMapper(batchLogitIndex, currentTokenIndex + (contextStateTokenIndex - this._nextTokenIndex));
         };
-
-        // Handle case where no tokens to decode but we need logits for generation
-        if (tokensLeftToDecode.length === 0 && logits.length > 0) {
-            // When there are no tokens to decode but we need logits, the context should already
-            // be in the correct state from previous evaluations (like after multimodal processing).
-            // 
-            // The issue is that calling the underlying _decodeTokens with empty tokens causes hanging.
-            // Instead, we need to process the logits request without decoding any tokens.
-            // 
-            // For now, we'll return a result that indicates we can't generate logits in this scenario,
-            // which will cause the calling code to handle it appropriately (likely by using a fallback
-            // approach or skipping this generation step).
-            
-            // Return empty result array matching the expected structure
-            // This will signal to the calling code that no logits were generated
-            return res;
-        }
 
         while (tokensLeftToDecode.length > 0) {
             this._ensureNotDisposed();
