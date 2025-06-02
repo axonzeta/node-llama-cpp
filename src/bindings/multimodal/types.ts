@@ -1,16 +1,16 @@
 /**
- * MultiBitmap class representing an image for multimodal LLM processing
+ * MultiBitmap class representing an image or audio for multimodal LLM processing
  */
 export interface MultiBitmap {
     /**
-     * Get the raw pixel data of the bitmap
-     * @returns Buffer containing RGB pixel data
+     * Get the raw data of the bitmap
+     * @returns Buffer containing RGB pixel data for images or Float32 PCM audio data for audio
      */
     getData(): Buffer;
     
     /**
-     * Get the dimensions of the bitmap
-     * @returns Object containing width and height
+     * Get the dimensions of the bitmap (for images only)
+     * @returns Object containing width and height for images, undefined for audio
      */
     getDimensions(): { width: number; height: number };
     
@@ -27,17 +27,23 @@ export interface MultiBitmap {
     setId(id: string): void;
     
     /**
+     * Check if this bitmap represents audio data
+     * @returns true if this is audio data, false if it's image data
+     */
+    isAudio(): boolean;
+    
+    /**
      * Release resources associated with this bitmap
      */
     dispose(): void;
 }
 
 /**
- * Collection of MultiBitmap objects for multimodal processing
+ * Collection of MultiBitmap objects (images and/or audio) for multimodal processing
  */
 export interface MultiBitmaps {
     /**
-     * Add a bitmap to the collection
+     * Add a bitmap (image or audio) to the collection
      * @param bitmap The bitmap to add
      */
     addBitmap(bitmap: MultiBitmap): void;
@@ -55,7 +61,7 @@ export interface MultiBitmaps {
 }
 
 /**
- * Result from tokenizing a text with images
+ * Result from tokenizing a text with images and/or audio
  */
 export interface MultimodalTokenizeResult {
     /**
@@ -68,7 +74,7 @@ export interface MultimodalTokenizeResult {
         tokens: number[];
         
         /**
-         * Image tokens (if applicable)
+         * Media tokens (image or audio, if applicable)
          */
         imageTokens?: number[];
     }[];

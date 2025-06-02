@@ -16,3 +16,6 @@ Napi::Value addonGetMultimodalBitmapData(const Napi::CallbackInfo& info);
 Napi::Value addonMultimodalTokenize(const Napi::CallbackInfo& info);
 Napi::Value addonMultimodalEvaluateChunks(const Napi::CallbackInfo& info);
 Napi::Value addonMultimodalTokenizeAndEvaluate(const Napi::CallbackInfo& info);
+Napi::Value addonInitMultimodalBitmapFromAudio(const Napi::CallbackInfo& info);
+Napi::Value addonMultimodalSupportsAudio(const Napi::CallbackInfo& info);
+Napi::Value addonMultimodalGetAudioBitrate(const Napi::CallbackInfo& info);

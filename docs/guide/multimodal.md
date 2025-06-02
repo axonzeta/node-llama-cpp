@@ -4,46 +4,56 @@ description: Working with multimodal (text+image) models in node-llama-cpp
 
 # Multimodal Support {#title}
 
-node-llama-cpp supports multimodal models that can process both text and images. This page explains how to use this functionality.
+node-llama-cpp supports multimodal models that can process text, images, and audio. This page explains how to use this functionality.
 
 ## Requirements
 
 To use multimodal functionality, you need:
 
-1. A multimodal model (like Llava, GPT-4o, SmolVLM, etc.)
+1. A multimodal model (like Llava, GPT-4o, SmolVLM, Qwen2.5-Omni, etc.)
 2. The model needs to be in GGUF format with multimodal projections included
 3. node-llama-cpp compiled with multimodal support
 
-## Image Token Format
+## Media Token Format
 
-When working with multimodal models, you need to use special image tokens in your prompts to indicate where images should be processed:
+When working with multimodal models, you need to use special media tokens in your prompts to indicate where images and audio should be processed:
 
-- `<__image__>` - Single image token placeholder
-- For multiple images: `<__image__><__image__>` - One token per image, in order
+- `<__media__>` - Universal media token placeholder for images or audio
+- For multiple media files: `<__media__><__media__>` - One token per media file, in order
 
 Example:
 ```typescript
 // Single image
-const prompt = "<__image__>Describe what you see in this image:";
-const evalResult = await llama.multimodal.tokenizeAndEvaluate(context, prompt, [imageBuffer]);
+const prompt = "<__media__>Describe what you see in this image:";
+const evalResult = await llama.multimodal.tokenizeAndEvaluateMedia(context, prompt, [imageBuffer]);
 
-// Multiple images
-const prompt = "<__image__><__image__>Compare these two images:";
-const evalResult = await llama.multimodal.tokenizeAndEvaluate(context, prompt, [image1Buffer, image2Buffer]);
+// Single audio
+const prompt = "<__media__>Describe what you hear in this audio:";
+const evalResult = await llama.multimodal.tokenizeAndEvaluateMedia(context, prompt, [audioBuffer]);
+
+// Multiple media files
+const prompt = "<__media__><__media__>Compare this image and audio:";
+const evalResult = await llama.multimodal.tokenizeAndEvaluateMedia(context, prompt, [imageBuffer, audioBuffer]);
 ```
+
+::: tip Legacy Image Token Support
+The older `<__image__>` token format is still supported for backward compatibility, but `<__media__>` is recommended for new implementations as it works with both images and audio.
+:::
 
 ## Basic Usage
 
-There are two main approaches to processing images with text:
+There are two main approaches to processing media (images and audio) with text:
 
-1. **Recommended**: Use `tokenizeAndEvaluate()` for automatic processing
-2. **Alternative**: Use `tokenize()` for manual token management
+1. **Recommended**: Use `tokenizeAndEvaluateMedia()` for automatic processing
+2. **Alternative**: Use `tokenizeMedia()` for manual token management
 
-### Recommended Approach: tokenizeAndEvaluate()
+### Recommended Approach: tokenizeAndEvaluateMedia()
 
 This method automatically handles multimodal context management and processes the content into the context state:
 
 ### TypeScript
+
+#### Image Processing Example
 
 ```typescript
 import {getLlama, LlamaContext} from "node-llama-cpp"; // Ensure LlamaContext is imported
@@ -75,9 +85,9 @@ async function main() {
     // Load image
     const imageBuffer = await fs.promises.readFile(path.join(__dirname, "image.jpg"));
     
-    // Process image with text using tokenizeAndEvaluate - multimodal context is automatically managed
-    const prompt = "<__image__>Describe what you see in this image:";
-    const evalResult = await llama.multimodal.tokenizeAndEvaluate(context, prompt, [imageBuffer]);
+    // Process image with text using tokenizeAndEvaluateMedia - multimodal context is automatically managed
+    const prompt = "<__media__>Describe what you see in this image:";
+    const evalResult = await llama.multimodal.tokenizeAndEvaluateMedia(context, prompt, [imageBuffer]);
     
     console.log("Tokens processed:", evalResult.tokensProcessed);
     console.log("New sequence length:", evalResult.newSequenceLength);
@@ -122,6 +132,106 @@ async function main() {
     // }
     // Consider disposing the model as well if appropriate for your application lifecycle.
   }
+}
+
+main();
+```
+
+#### Audio Processing Example
+
+```typescript
+import {getLlama, LlamaContext} from "node-llama-cpp";
+import fs from "fs";
+import path from "path";
+
+async function main() {
+  const llama = await getLlama();
+  const modelPath = "path/to/Qwen2.5-Omni-3B-Q4_K_M.gguf"; // Audio-capable model
+  const multimodalProjectorPath = "path/to/mmproj-Qwen2.5-Omni-3B-Q8_0.gguf"; // Required for audio support
+
+  let context: LlamaContext | null = null;
+
+  try {
+    // Load a multimodal model with audio support
+    const model = await llama.loadModel({
+      modelPath: modelPath,
+      multimodalProjectorPath: multimodalProjectorPath
+    });
+
+    // Create context
+    context = await model.createContext();
+
+    // Load audio file
+    const audioBuffer = await fs.promises.readFile(path.join(__dirname, "audio.mp3"));
+
+    console.log("Processing multimodal input...");
+    console.log("Audio buffer size:", audioBuffer.length);
+    
+    // Use the correct prompt format for audio input
+    const prompt = "<__media__>Describe what you hear in this audio:";
+    console.log("Text prompt:", prompt);
+    
+    // First, let's test the bitmap creation directly
+    console.log("Testing bitmap creation...");
+    const bitmap = llama.multimodal.loadMediaFromBuffer(context, audioBuffer);
+    console.log("Bitmap created, isAudio():", bitmap.isAudio());
+    console.log("Bitmap ID:", bitmap.getId());
+    
+    // Clean up the test bitmap
+    bitmap.dispose();
+    
+    // Process audio with text using tokenizeAndEvaluateMedia
+    const evalResult = llama.multimodal.tokenizeAndEvaluateMedia(
+      context,
+      prompt,
+      [audioBuffer]
+    );
+    
+    console.log("Evaluation result:", evalResult);
+    console.log("Tokens processed:", evalResult.tokensProcessed);
+    console.log("New sequence length:", evalResult.newSequenceLength);
+
+    // Generate response from the current context state
+    console.log("Starting text generation...");
+    
+    try {
+      // Get a sequence that starts from the current context state
+      const sequence = context.getSequence();
+      
+      console.log("Generating response:");
+      
+      // Generate from the current state
+      const promptTokens = context.model.tokenize("\n");
+      const responseTokens = sequence.evaluate(promptTokens, { maxTokens: 100 });
+      
+      let generatedText = "";
+      let tokenCount = 0;
+      
+      for await (const token of responseTokens) {
+        const tokenText = context.model.detokenize([token]);
+        generatedText += tokenText;
+        process.stdout.write(tokenText);
+        
+        tokenCount++;
+        
+        // Stop at natural ending points or max tokens
+        if (tokenCount >= 100 || 
+            tokenText.includes('<|end_of_turn|>') || 
+            tokenText.includes('</s>') ||
+            tokenText.includes('<|eot_id|>')) {
+          break;
+        }
+      }
+      
+      console.log(`\n\nGeneration completed. Generated ${tokenCount} tokens.`);
+      console.log("Full response:", generatedText);
+      
+    } catch (generationError) {
+      console.error("Generation failed:", generationError);
+    }
+  } catch (error) {
+    console.error("An error occurred:", error);
+  } 
 }
 
 main();
@@ -159,9 +269,9 @@ async function main() {
     // Load image
     const imageBuffer = await fs.promises.readFile(path.join(__dirname, "image.jpg"));
     
-    // Process image with text using tokenizeAndEvaluate - multimodal context is automatically managed
-    const prompt = "<__image__>Describe what you see in this image:";
-    const evalResult = await llama.multimodal.tokenizeAndEvaluate(context, prompt, [imageBuffer]);
+    // Process image with text using tokenizeAndEvaluateMedia - multimodal context is automatically managed
+    const prompt = "<__media__>Describe what you see in this image:";
+    const evalResult = await llama.multimodal.tokenizeAndEvaluateMedia(context, prompt, [imageBuffer]);
     
     console.log("Tokens processed:", evalResult.tokensProcessed);
     console.log("New sequence length:", evalResult.newSequenceLength);
@@ -211,13 +321,13 @@ async function main() {
 main();
 ```
 
-### Alternative Approach: Manual tokenize()
+### Alternative Approach: Manual tokenizeMedia()
 
-For more control over token management, you can use the lower-level `tokenize()` method:
+For more control over token management, you can use the lower-level `tokenizeMedia()` method:
 
 ```typescript
 // Get tokenization result
-const result = await llama.multimodal.tokenize(context, "<__image__>Describe this image:", [imageBuffer]);
+const result = await llama.multimodal.tokenizeMedia(context, "<__media__>Describe this image:", [imageBuffer]);
 
 // Extract and set tokens manually
 const allTokens = result.chunks.flatMap(chunk => chunk.tokens);
@@ -332,7 +442,7 @@ This convenience method handles all the multimodal setup internally, including:
 
 ## Response Format
 
-When you call `multimodal.tokenizeAndEvaluate()`, you'll get a result with the following structure:
+When you call `multimodal.tokenizeAndEvaluateMedia()`, you'll get a result with the following structure:
 
 ```typescript
 interface TokenizeAndEvaluateResult {
@@ -341,7 +451,7 @@ interface TokenizeAndEvaluateResult {
 }
 ```
 
-When you call `multimodal.tokenize()` (lower-level method), you'll get a result with the following structure:
+When you call `multimodal.tokenizeMedia()` (lower-level method), you'll get a result with the following structure:
 
 ```typescript
 interface MultimodalTokenizeResult {
@@ -352,12 +462,12 @@ interface MultimodalTokenizeResult {
 }
 ```
 
-Example for using the tokenizeAndEvaluate result:
+Example for using the tokenizeAndEvaluateMedia result:
 
 ```typescript
 // Get the evaluation result (recommended approach)
-const prompt = "<__image__>Describe this image:";
-const evalResult = await llama.multimodal.tokenizeAndEvaluate(context, prompt, [imageBuffer]);
+const prompt = "<__media__>Describe this image:";
+const evalResult = await llama.multimodal.tokenizeAndEvaluateMedia(context, prompt, [imageBuffer]);
 
 console.log("Tokens processed:", evalResult.tokensProcessed);
 console.log("New sequence length:", evalResult.newSequenceLength);
@@ -367,11 +477,11 @@ const sequence = context.getSequence();
 // Generate response from current state...
 ```
 
-Example for using the lower-level tokenize method:
+Example for using the lower-level tokenizeMedia method:
 
 ```typescript
 // Get the tokenization result (lower-level approach)
-const result = await llama.multimodal.tokenize(context, "Describe this image:", [imageBuffer]);
+const result = await llama.multimodal.tokenizeMedia(context, "Describe this image:", [imageBuffer]);
 
 // Extract all tokens from chunks
 const allTokens = result.chunks.flatMap(chunk => chunk.tokens);
@@ -383,36 +493,36 @@ sequence.setTokens(allTokens);
 
 ## Advanced Usage
 
-### Image Caching
+### Media Caching
 
-To improve performance when using the same image multiple times, you can use the image hashing and ID system:
+To improve performance when using the same media files multiple times, you can use the media hashing and ID system:
 
 ```typescript
 // Load image once
 const imageBuffer = await fs.promises.readFile(path.join(__dirname, "image.jpg"));
-const bitmap = llama.multimodal.loadImageFromBuffer(imageBuffer);
+const bitmap = llama.multimodal.loadMediaFromBuffer(context, imageBuffer);
 
 // The hash is automatically set, but you can manually set a custom ID if needed
 console.log(bitmap.getId()); // Shows automatically generated hash
 bitmap.setId("my-custom-id"); // Optional: set custom ID for reference
 
-// Create a collection to hold multiple images
+// Create a collection to hold multiple media files
 const bitmaps = llama.multimodal.createBitmapCollection();
 bitmaps.addBitmap(bitmap);
 
-// Process multiple images
+// Process multiple media files
 const anotherImage = await fs.promises.readFile(path.join(__dirname, "second-image.jpg"));
-const bitmap2 = llama.multimodal.loadImageFromBuffer(anotherImage);
+const bitmap2 = llama.multimodal.loadMediaFromBuffer(context, anotherImage);
 bitmaps.addBitmap(bitmap2);
 
-// Tokenize with multiple images using tokenizeAndEvaluate
-const prompt = "<__image__><__image__>Compare these two images:";
-const evalResult = await llama.multimodal.tokenizeAndEvaluate(context, prompt, bitmaps);
+// Tokenize with multiple media files using tokenizeAndEvaluateMedia
+const prompt = "<__media__><__media__>Compare these two images:";
+const evalResult = await llama.multimodal.tokenizeAndEvaluateMedia(context, prompt, bitmaps);
 ```
 
-### Complete Example with Multiple Images
+### Complete Example with Multiple Media Files
 
-Here's a complete example showing how to process multiple images with a multimodal model:
+Here's a complete example showing how to process multiple media files with a multimodal model:
 
 ### TypeScript
 
@@ -449,7 +559,7 @@ async function main() {
     
     const prompt = "Compare these two images. What are the main differences between them?";
     // Tokenize - multimodal context is automatically managed
-    const result = await llama.multimodal.tokenize(context, prompt, [image1, image2]);
+    const result = await llama.multimodal.tokenizeMedia(context, prompt, [image1, image2]);
     
     const allTokens = result.chunks.flatMap(chunk => chunk.tokens);
     
@@ -515,7 +625,7 @@ async function main() {
     
     const prompt = "Compare these two images. What are the main differences between them?";
     // Tokenize - multimodal context is automatically managed
-    const result = await llama.multimodal.tokenize(context, prompt, [image1, image2]);
+    const result = await llama.multimodal.tokenizeMedia(context, prompt, [image1, image2]);
     
     const allTokens = result.chunks.flatMap(chunk => chunk.tokens);
     
@@ -569,10 +679,11 @@ The main class for multimodal functionality, accessed through `llama.multimodal`
 
 #### Methods
 
-- `loadImageFromBuffer(imageBuffer: Buffer): MultiBitmap` - Load an image from a buffer.
+- `loadMediaFromBuffer(context: LlamaContext, mediaBuffer: Buffer): MultiBitmap` - Load media (image or audio) from a buffer. Automatically detects the media type.
+- `loadImageFromBuffer(imageBuffer: Buffer): MultiBitmap` - Load an image from a buffer (deprecated, use loadMediaFromBuffer).
 - `createBitmapCollection(): MultiBitmaps` - Create a new collection of bitmaps.
-- `tokenizeAndEvaluate(context: LlamaContext, text: string, images: Buffer[] | MultiBitmaps): Promise<TokenizeAndEvaluateResult>` - **Recommended method** - Tokenize and evaluate multimodal content in one step. Automatically handles context management and processes both text and images into the context state.
-- `tokenize(context: LlamaContext, text: string, images: Buffer[] | MultiBitmaps): Promise<MultimodalTokenizeResult>` - Lower-level method to tokenize text with images. Returns tokens that need to be manually set in a sequence. Multimodal context is automatically managed per-context.
+- `tokenizeAndEvaluateMedia(context: LlamaContext, text: string, media: Buffer[] | MultiBitmaps): Promise<TokenizeAndEvaluateResult>` - **Recommended method** - Tokenize and evaluate multimodal content in one step. Automatically handles context management and processes both text and media into the context state.
+- `tokenizeMedia(context: LlamaContext, text: string, media: Buffer[] | MultiBitmaps): Promise<MultimodalTokenizeResult>` - Lower-level method to tokenize text with media. Returns tokens that need to be manually set in a sequence. Multimodal context is automatically managed per-context.
 
 #### Properties
 
@@ -581,14 +692,15 @@ The main class for multimodal functionality, accessed through `llama.multimodal`
 
 ### `MultiBitmap`
 
-Represents an image for multimodal processing.
+Represents media (image or audio) for multimodal processing.
 
 #### Methods
 
-- `getData(): Buffer` - Get the raw pixel data of the bitmap
-- `getDimensions(): { width: number; height: number }` - Get the dimensions of the bitmap
+- `getData(): Buffer` - Get the raw data of the bitmap (RGB pixel data for images or Float32 PCM audio data for audio)
+- `getDimensions(): { width: number; height: number }` - Get the dimensions of the bitmap (for images only, undefined for audio)
 - `getId(): string | null` - Get the ID of the bitmap (used for caching)
 - `setId(id: string): void` - Set the ID of the bitmap (useful for custom caching)
+- `isAudio(): boolean` - Check if this bitmap represents audio data
 - `dispose(): void` - Release resources (important to avoid memory leaks)
 
 ### `MultiBitmaps`
@@ -603,7 +715,7 @@ Collection of MultiBitmap objects for batch processing.
 
 ### `TokenizeAndEvaluateResult`
 
-Result from calling `tokenizeAndEvaluate()`.
+Result from calling `tokenizeAndEvaluateMedia()`.
 
 #### Properties
 
@@ -612,7 +724,7 @@ Result from calling `tokenizeAndEvaluate()`.
 
 ### `MultimodalTokenizeResult`
 
-Result from tokenizing text with images using the lower-level `tokenize()` method.
+Result from tokenizing text with media using the lower-level `tokenizeMedia()` method.
 
 #### Properties
 

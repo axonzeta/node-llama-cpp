@@ -98,10 +98,13 @@ export type BindingModule = {
     
     // Multimodal Functions
     initMultimodalBitmapFromBuffer(context: object, buffer: Buffer): MultiBitmap;
+    initMultimodalBitmapFromAudio(context: object, audioBuffer: Float32Array): MultiBitmap;
     createMultimodalBitmaps(): MultiBitmaps;
     multimodalTokenize(context: object, text: string, bitmaps: MultiBitmaps): MultimodalTokenizeResult;
     multimodalEvaluateChunks(context: object, tokenizeResult: MultimodalTokenizeResult): object;
     multimodalTokenizeAndEvaluate(context: object, text: string, bitmaps: MultiBitmaps): object;
+    multimodalSupportsAudio(context: object): boolean;
+    multimodalGetAudioBitrate(context: object): number;
 };
 
 export type AddonModel = {

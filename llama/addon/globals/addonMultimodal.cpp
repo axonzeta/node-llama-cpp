@@ -21,6 +21,7 @@ public:
             InstanceMethod("getDimensions", &MultiBitmap::GetDimensions),
             InstanceMethod("getId", &MultiBitmap::GetId),
             InstanceMethod("setId", &MultiBitmap::SetId),
+            InstanceMethod("isAudio", &MultiBitmap::IsAudio),
             InstanceMethod("dispose", &MultiBitmap::Dispose)
         });
         
@@ -114,6 +115,18 @@ public:
         return env.Undefined();
     }
     
+    Napi::Value IsAudio(const Napi::CallbackInfo& info) {
+        Napi::Env env = info.Env();
+        
+        if (!bitmap_wrapper.ptr) {
+            Napi::Error::New(env, "Bitmap has been disposed or was not initialized").ThrowAsJavaScriptException();
+            return env.Undefined();
+        }
+        
+        bool is_audio = mtmd_bitmap_is_audio(bitmap_wrapper.ptr.get());
+        return Napi::Boolean::New(env, is_audio);
+    }
+    
     Napi::Value Dispose(const Napi::CallbackInfo& info) {
         Napi::Env env = info.Env();
         // The unique_ptr in bitmap_wrapper will handle freeing the mtmd_bitmap*
@@ -182,11 +195,19 @@ public:
         uint32_t nx = mtmd_bitmap_get_nx(original_c_bitmap);
         uint32_t ny = mtmd_bitmap_get_ny(original_c_bitmap);
         const unsigned char* original_data = mtmd_bitmap_get_data(original_c_bitmap);
+        bool is_audio = mtmd_bitmap_is_audio(original_c_bitmap);
         
-        // mtmd_bitmap_init is expected to copy the data.
-        // If it doesn't, we'd need to malloc/memcpy here and pass the new buffer.
-        // Assuming mtmd_bitmap_init copies `original_data`.
-        mtmd_bitmap* new_c_bitmap = mtmd_bitmap_init(nx, ny, original_data);
+        // Choose the appropriate initialization function based on bitmap type
+        mtmd_bitmap* new_c_bitmap = nullptr;
+        if (is_audio) {
+            // For audio bitmaps, use mtmd_bitmap_init_from_audio to preserve audio properties
+            size_t n_samples = nx; // For audio, nx represents the number of samples
+            const float* audio_data = reinterpret_cast<const float*>(original_data);
+            new_c_bitmap = mtmd_bitmap_init_from_audio(n_samples, audio_data);
+        } else {
+            // For image bitmaps, use the standard image initialization
+            new_c_bitmap = mtmd_bitmap_init(nx, ny, original_data);
+        }
 
         if (!new_c_bitmap) {
             Napi::Error::New(env, "Failed to create a copy of the bitmap for the collection").ThrowAsJavaScriptException();
@@ -298,6 +319,171 @@ Napi::Value addonCreateMultimodalBitmaps(const Napi::CallbackInfo& info) {
     }
 }
 
+Napi::Value addonInitMultimodalBitmapFromAudio(const Napi::CallbackInfo& info) {
+    Napi::Env env = info.Env();
+    
+    // Check arguments - expecting context and audio buffer (Float32Array)
+    if (info.Length() < 2 || !info[0].IsObject() || !info[1].IsTypedArray()) {
+        Napi::TypeError::New(env, "Expected context object and Float32Array as arguments").ThrowAsJavaScriptException();
+        return env.Undefined();
+    }
+    
+    try {
+        // Get the context
+        Napi::Object contextObj = info[0].As<Napi::Object>();
+        AddonContext* addonCtxInstance = nullptr;
+        try {
+            addonCtxInstance = Napi::ObjectWrap<AddonContext>::Unwrap(contextObj);
+        } catch (const Napi::Error& e) {
+            std::string errMsg = "Failed to unwrap AddonContext object for audio bitmap initialization: ";
+            errMsg += e.Message();
+            Napi::Error::New(env, errMsg).ThrowAsJavaScriptException();
+            return env.Undefined();
+        }
+
+        if (!addonCtxInstance) {
+            Napi::Error::New(env, "Unwrapped AddonContext instance is null for audio bitmap initialization.").ThrowAsJavaScriptException();
+            return env.Undefined();
+        }
+
+        if (!addonCtxInstance->multimodal_ctx) {
+            Napi::Error::New(env, "Multimodal context is not initialized. Please ensure the model was loaded with a multimodal projector.").ThrowAsJavaScriptException();
+            return env.Undefined();
+        }
+        
+        // Check if audio is supported
+        if (!mtmd_support_audio(addonCtxInstance->multimodal_ctx)) {
+            Napi::Error::New(env, "Audio input is not supported by this model.").ThrowAsJavaScriptException();
+            return env.Undefined();
+        }
+        
+        // Get the audio buffer data (Float32Array)
+        Napi::TypedArray audioArray = info[1].As<Napi::TypedArray>();
+        if (audioArray.TypedArrayType() != napi_float32_array) {
+            Napi::TypeError::New(env, "Expected Float32Array for audio data").ThrowAsJavaScriptException();
+            return env.Undefined();
+        }
+        
+        Napi::Float32Array float32Array = audioArray.As<Napi::Float32Array>();
+        float* audio_data = float32Array.Data();
+        size_t n_samples = float32Array.ElementLength();
+        
+        // Create MultiBitmap instance
+        Napi::Object bitmapObj = MultiBitmap::constructor.New({});
+        MultiBitmap* bitmap = Napi::ObjectWrap<MultiBitmap>::Unwrap(bitmapObj);
+        
+        // Initialize bitmap from audio data
+        mtmd_bitmap* native_bitmap = mtmd_bitmap_init_from_audio(n_samples, audio_data);
+        
+        if (!native_bitmap) {
+            Napi::Error::New(env, "Failed to initialize bitmap from audio data - mtmd_bitmap_init_from_audio returned null.").ThrowAsJavaScriptException();
+            return env.Undefined();
+        }
+        
+        // Set the bitmap pointer in our wrapper
+        bitmap->bitmap_wrapper.ptr.reset(native_bitmap);
+        
+        return bitmapObj;
+    } catch (const Napi::Error& e) {
+        // Catch NAPI errors thrown from constructor and rethrow
+        e.ThrowAsJavaScriptException();
+        return env.Undefined();
+    } catch (const std::exception& e) {
+        std::string errMsg = "C++ exception in addonInitMultimodalBitmapFromAudio: ";
+        errMsg += e.what();
+        Napi::Error::New(env, errMsg).ThrowAsJavaScriptException();
+        return env.Undefined();
+    }
+}
+
+Napi::Value addonMultimodalSupportsAudio(const Napi::CallbackInfo& info) {
+    Napi::Env env = info.Env();
+    
+    if (info.Length() < 1 || !info[0].IsObject()) {
+        Napi::TypeError::New(env, "Expected context object as argument").ThrowAsJavaScriptException();
+        return env.Undefined();
+    }
+    
+    try {
+        // Get the context
+        Napi::Object contextObj = info[0].As<Napi::Object>();
+        AddonContext* addonCtxInstance = nullptr;
+        try {
+            addonCtxInstance = Napi::ObjectWrap<AddonContext>::Unwrap(contextObj);
+        } catch (const Napi::Error& e) {
+            std::string errMsg = "Failed to unwrap AddonContext object: ";
+            errMsg += e.Message();
+            Napi::Error::New(env, errMsg).ThrowAsJavaScriptException();
+            return env.Undefined();
+        }
+
+        if (!addonCtxInstance) {
+            Napi::Error::New(env, "Unwrapped AddonContext instance is null.").ThrowAsJavaScriptException();
+            return env.Undefined();
+        }
+
+        if (!addonCtxInstance->multimodal_ctx) {
+            return Napi::Boolean::New(env, false);
+        }
+        
+        bool supports_audio = mtmd_support_audio(addonCtxInstance->multimodal_ctx);
+        return Napi::Boolean::New(env, supports_audio);
+        
+    } catch (const Napi::Error& e) {
+        e.ThrowAsJavaScriptException();
+        return env.Undefined();
+    } catch (const std::exception& e) {
+        std::string errMsg = "C++ exception in addonMultimodalSupportsAudio: ";
+        errMsg += e.what();
+        Napi::Error::New(env, errMsg).ThrowAsJavaScriptException();
+        return env.Undefined();
+    }
+}
+
+Napi::Value addonMultimodalGetAudioBitrate(const Napi::CallbackInfo& info) {
+    Napi::Env env = info.Env();
+    
+    if (info.Length() < 1 || !info[0].IsObject()) {
+        Napi::TypeError::New(env, "Expected context object as argument").ThrowAsJavaScriptException();
+        return env.Undefined();
+    }
+    
+    try {
+        // Get the context
+        Napi::Object contextObj = info[0].As<Napi::Object>();
+        AddonContext* addonCtxInstance = nullptr;
+        try {
+            addonCtxInstance = Napi::ObjectWrap<AddonContext>::Unwrap(contextObj);
+        } catch (const Napi::Error& e) {
+            std::string errMsg = "Failed to unwrap AddonContext object: ";
+            errMsg += e.Message();
+            Napi::Error::New(env, errMsg).ThrowAsJavaScriptException();
+            return env.Undefined();
+        }
+
+        if (!addonCtxInstance) {
+            Napi::Error::New(env, "Unwrapped AddonContext instance is null.").ThrowAsJavaScriptException();
+            return env.Undefined();
+        }
+
+        if (!addonCtxInstance->multimodal_ctx) {
+            return Napi::Number::New(env, -1);
+        }
+        
+        int bitrate = mtmd_get_audio_bitrate(addonCtxInstance->multimodal_ctx);
+        return Napi::Number::New(env, bitrate);
+        
+    } catch (const Napi::Error& e) {
+        e.ThrowAsJavaScriptException();
+        return env.Undefined();
+    } catch (const std::exception& e) {
+        std::string errMsg = "C++ exception in addonMultimodalGetAudioBitrate: ";
+        errMsg += e.what();
+        Napi::Error::New(env, errMsg).ThrowAsJavaScriptException();
+        return env.Undefined();
+    }
+}
+
 
 
 Napi::Value addonMultimodalTokenize(const Napi::CallbackInfo& info) {
@@ -384,7 +570,7 @@ Napi::Value addonMultimodalTokenize(const Napi::CallbackInfo& info) {
         }
         
         // 6. Get C-style array of const mtmd_bitmap* pointers using the helper from mtmd::bitmaps
-        // Corrected typo: multi_bit_maps_napi -> multi_bit_maps_napi
+        // Corrected typo: multi_bit_maps_napi -> multi_bitmaps_napi
         std::vector<const mtmd_bitmap*> c_bitmap_pointers = multi_bitmaps_napi->bitmaps_collection_cpp_wrapper.c_ptr();
         
         // 7. Call mtmd_tokenize
@@ -641,6 +827,22 @@ Napi::Value addonMultimodalTokenizeAndEvaluate(const Napi::CallbackInfo& info) {
         llama_pos n_past = addonCtxInstance->n_cur; // Use current sequence position
         llama_pos new_n_past = 0;
         
+        // Check for audio chunks and ensure the model supports audio if present
+        bool has_audio_chunks = false;
+        for (size_t i = 0; i < mtmd_input_chunks_size(chunks); i++) {
+            auto chunk = mtmd_input_chunks_get(chunks, i);
+            if (mtmd_input_chunk_get_type(chunk) == MTMD_INPUT_CHUNK_TYPE_AUDIO) {
+                has_audio_chunks = true;
+                break;
+            }
+        }
+        
+        if (has_audio_chunks && !mtmd_support_audio(addonCtxInstance->multimodal_ctx)) {
+            mtmd_input_chunks_free(chunks);
+            Napi::Error::New(env, "This model doesn't support audio processing, but audio content was detected.").ThrowAsJavaScriptException();
+            return env.Undefined();
+        }
+        
         int32_t eval_result = mtmd_helper_eval_chunks(addonCtxInstance->multimodal_ctx, lctx, chunks, 
                                                      n_past, 0, // seq_id = 0
                                                      addonCtxInstance->context_params.n_batch, // n_batch
@@ -650,6 +852,16 @@ Napi::Value addonMultimodalTokenizeAndEvaluate(const Napi::CallbackInfo& info) {
         if (eval_result != 0) {
             mtmd_input_chunks_free(chunks);
             std::string errMsg = "Failed to evaluate multimodal chunks. Error code: " + std::to_string(eval_result);
+            
+            // Provide more specific guidance for common audio-related errors
+            if (has_audio_chunks && errMsg.find("GGML_ASSERT") != std::string::npos) {
+                errMsg += "\n\nThis appears to be a matrix dimension error that often happens when processing audio.";
+                errMsg += "\nPossible causes:";
+                errMsg += "\n- The model might not fully support audio processing";
+                errMsg += "\n- Audio format might be incompatible with this model";
+                errMsg += "\n- Try using a different audio file or a model specifically designed for audio processing";
+            }
+            
             Napi::Error::New(env, errMsg).ThrowAsJavaScriptException();
             return env.Undefined();
         }
@@ -678,7 +890,6 @@ Napi::Value addonMultimodalTokenizeAndEvaluate(const Napi::CallbackInfo& info) {
     }
 }
 
-
 Napi::Object InitMultimodal(Napi::Env env, Napi::Object exports) {
     MultiBitmap::Init(env, exports);
     MultiBitmaps::Init(env, exports);
@@ -694,5 +905,13 @@ Napi::Object InitMultimodal(Napi::Env env, Napi::Object exports) {
     exports.Set("multimodalTokenizeAndEvaluate", 
                 Napi::Function::New(env, addonMultimodalTokenizeAndEvaluate, "multimodalTokenizeAndEvaluate"));
                 
+    // Expose audio functions
+    exports.Set("initMultimodalBitmapFromAudio", 
+                Napi::Function::New(env, addonInitMultimodalBitmapFromAudio, "initMultimodalBitmapFromAudio"));
+    exports.Set("multimodalSupportsAudio", 
+                Napi::Function::New(env, addonMultimodalSupportsAudio, "multimodalSupportsAudio"));
+    exports.Set("multimodalGetAudioBitrate", 
+                Napi::Function::New(env, addonMultimodalGetAudioBitrate, "multimodalGetAudioBitrate"));
+    
     return exports;
 }
