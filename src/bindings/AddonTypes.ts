@@ -30,7 +30,8 @@ export type BindingModule = {
             embeddings?: boolean,
             ranking?: boolean,
             threads?: number,
-            performanceTracking?: boolean
+            performanceTracking?: boolean,
+            swaFullCache?: boolean
         }): AddonContext
     },
     AddonGrammar: {
@@ -56,6 +57,7 @@ export type BindingModule = {
     getMathCores(): number,
     getBlockSizeForGgmlType(ggmlType: number): number | undefined,
     getTypeSizeForGgmlType(ggmlType: number): number | undefined,
+    getGgmlGraphOverheadCustom(size: number, grads: boolean): number,
     getConsts(): {
         ggmlMaxDims: number,
         ggmlTypeF16Size: number,
@@ -164,6 +166,8 @@ export type AddonContext = {
     // startPos in inclusive, endPos is exclusive
     shiftSequenceTokenCells(sequenceId: number, startPos: number, endPos: number, shiftDelta: number): void,
 
+    getSequenceKvCacheMinPosition(sequenceId: number): number,
+    getSequenceKvCacheMaxPosition(sequenceId: number): number,
     getEmbedding(inputTokensLength: number, maxVectorSize?: number): Float64Array,
     getStateSize(): number,
     getThreads(): number,

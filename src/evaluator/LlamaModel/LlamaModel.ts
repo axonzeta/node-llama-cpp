@@ -118,6 +118,17 @@ export type LlamaModelOptions = {
     defaultContextFlashAttention?: boolean,
 
     /**
+     * When using SWA (Sliding Window Attention) on a supported model,
+     * extend the sliding window size to the current context size (meaning practically disabling SWA)
+     * by default for contexts created with this model.
+     *
+     * See the `swaFullCache` option of the `.createContext()` method for more information.
+     *
+     * Defaults to `false`.
+     */
+    defaultContextSwaFullCache?: boolean,
+
+    /**
      * Called with the load percentage when the model is being loaded.
      * @param loadProgress - a number between 0 (exclusive) and 1 (inclusive).
      */
@@ -146,6 +157,7 @@ export type LlamaModelOptions = {
 
 const defaultUseMmap = true;
 const defaultContextFlashAttentionEnabled = false;
+const defaultContextSwaFullCache = false;
 
 export class LlamaModel {
     /** @internal */ public readonly _llama: Llama;
@@ -163,6 +175,7 @@ export class LlamaModel {
     /** @internal */ private readonly _llamaPreventDisposalHandle: DisposalPreventionHandle;
     /** @internal */ private readonly _defaultContextFlashAttentionOptionEnabled: boolean;
     /** @internal */ private readonly _defaultContextFlashAttention: boolean;
+    /** @internal */ private readonly _defaultContextSwaFullCache: boolean;
     /** @internal */ private readonly _flashAttentionSupported: boolean;
     /** @internal */ private readonly _multimodalProjectorPath?: string;
     /** @internal */ private readonly _loraAdapters = new Map<string, AddonModelLora>();
@@ -184,6 +197,7 @@ export class LlamaModel {
         _fileInsights,
         _defaultContextFlashAttentionOptionEnabled,
         _defaultContextFlashAttention,
+        _defaultContextSwaFullCache,
         _flashAttentionSupported
     }: {
         _llama: Llama,
@@ -191,6 +205,7 @@ export class LlamaModel {
         _fileInsights: GgufInsights,
         _defaultContextFlashAttentionOptionEnabled: boolean,
         _defaultContextFlashAttention: boolean,
+        _defaultContextSwaFullCache: boolean,
         _flashAttentionSupported: boolean
     }) {
         this._llama = _llama;
@@ -203,6 +218,7 @@ export class LlamaModel {
         this._llamaPreventDisposalHandle = this._llama._backendDisposeGuard.createPreventDisposalHandle();
         this._defaultContextFlashAttentionOptionEnabled = _defaultContextFlashAttentionOptionEnabled;
         this._defaultContextFlashAttention = _defaultContextFlashAttention;
+        this._defaultContextSwaFullCache = _defaultContextSwaFullCache;
         this._flashAttentionSupported = _flashAttentionSupported;
         this._multimodalProjectorPath = multimodalProjectorPath;
         const overridesList = ggufMetadataOverridesToList(metadataOverrides);
@@ -328,6 +344,10 @@ export class LlamaModel {
 
     public get defaultContextFlashAttention() {
         return this._defaultContextFlashAttention;
+    }
+
+    public get defaultContextSwaFullCache() {
+        return this._defaultContextSwaFullCache;
     }
 
     /**
@@ -794,9 +814,11 @@ export class LlamaModel {
         const resolvedDefaultContextFlashAttention = flashAttentionSupported
             ? (defaultContextFlashAttention ?? defaultContextFlashAttentionEnabled)
             : false;
+        const resolvedDefaultContextSwaFullCache = modelOptions.defaultContextSwaFullCache ?? defaultContextSwaFullCache;
         const gpuLayers = await ggufInsights.configurationResolver.resolveModelGpuLayers(modelOptions.gpuLayers, {
             ignoreMemorySafetyChecks: modelOptions.ignoreMemorySafetyChecks,
             defaultContextFlashAttention: resolvedDefaultContextFlashAttention,
+            defaultContextSwaFullCache: resolvedDefaultContextSwaFullCache,
             useMmap
         });
         const resourceRequirementsEstimation = ggufInsights.estimateModelResourceRequirements({
@@ -810,7 +832,8 @@ export class LlamaModel {
             _llama,
             _defaultContextFlashAttentionOptionEnabled: defaultContextFlashAttention ?? false,
             _flashAttentionSupported: flashAttentionSupported,
-            _defaultContextFlashAttention: resolvedDefaultContextFlashAttention
+            _defaultContextFlashAttention: resolvedDefaultContextFlashAttention,
+            _defaultContextSwaFullCache: resolvedDefaultContextSwaFullCache
         });
         const modelCreationVramReservation = modelOptions.ignoreMemorySafetyChecks
             ? null
