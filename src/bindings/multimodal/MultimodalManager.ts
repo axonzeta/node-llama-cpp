@@ -1,5 +1,5 @@
 import {BindingModule} from "../AddonTypes.js";
-import {MultiBitmap, MultiBitmaps, MultimodalTokenizeResult} from "./types.js";
+import {MultiBitmap, MultiBitmaps, MultimodalTokenizeResult, VisionEncoderState} from "./types.js";
 import {Token} from "../../types.js";
 import type {LlamaContext} from "../../evaluator/LlamaContext/LlamaContext.js"; // Corrected import path
 
@@ -459,6 +459,192 @@ export class MultimodalManager {
             bitmaps.dispose();
             throw error;
         }
+    }
+    
+    /**
+     * Extract tokens from multimodal input as a flat array
+     * This method tokenizes multimodal input and returns all tokens (text, image, audio) 
+     * as a single flat array that can be used in subsequent evaluation calls.
+     * 
+     * @param context The LlamaContext to use
+     * @param text The text prompt to process
+     * @param media Array of media buffers (Buffer for images/audio files, Float32Array for raw PCM audio)
+     * @returns Array of token IDs
+     */
+    public async getTokens(context: LlamaContext, text: string, media: Array<Buffer | Float32Array>): Promise<number[]> {
+        const nativeContext = context._ctx;
+        if (!nativeContext) {
+            throw new Error("Invalid LlamaContext object: _ctx is missing. Cannot extract tokens from multimodal input.");
+        }
+
+        if (typeof this._bindings.multimodalGetTokens !== 'function') {
+            throw new Error("multimodalGetTokens is not supported by the current bindings. Ensure the native addon is compiled with multimodal support and is up to date.");
+        }
+
+        // Create bitmap collection
+        const bitmaps = this.createBitmapCollection();
+
+        try {
+            // Array to keep track of bitmaps for proper cleanup
+            const createdBitmaps: MultiBitmap[] = [];
+            
+            // Load each media item and add to collection
+            for (const mediaBuffer of media) {
+                try {
+                    const bitmap = this.loadMediaFromBuffer(context, mediaBuffer);
+                    
+                    if (bitmap.isAudio()) {
+                        // For audio content, ensure the model supports it
+                        if (!this.supportsAudio(context)) {
+                            bitmap.dispose(); // Clean up this bitmap
+                            throw new Error("Audio input was detected but this model doesn't support audio processing.");
+                        }
+                    }
+                    
+                    createdBitmaps.push(bitmap);
+                    bitmaps.addBitmap(bitmap);
+                } catch (error: any) {
+                    // Clean up any bitmaps that were already created
+                    createdBitmaps.forEach(b => b.dispose());
+                    throw new Error(`Failed to process media for token extraction: ${error.message || error}`);
+                }
+            }
+
+            // Extract tokens using the native function
+            const tokens = this._bindings.multimodalGetTokens(nativeContext, text, bitmaps);
+            
+            // Clean up individual bitmaps
+            createdBitmaps.forEach(bitmap => bitmap.dispose());
+            
+            return tokens;
+        } catch (error) {
+            // Make sure to clean up resources even if token extraction fails
+            bitmaps.dispose();
+            throw error;
+        }
+    }
+
+    /**
+     * Tokenize multimodal content and return both chunks and flat token array
+     * This is an enhanced version of the tokenize method that includes both the original
+     * chunk structure and a new flat token array.
+     * 
+     * @param context The LlamaContext to use
+     * @param text The text prompt to process
+     * @param media Array of media buffers (Buffer for images/audio files, Float32Array for raw PCM audio)
+     * @returns Tokenization result with both chunks and flat tokens
+     */
+    public async tokenizeMedia(context: LlamaContext, text: string, media: Array<Buffer | Float32Array>): Promise<MultimodalTokenizeResult> {
+        const nativeContext = context._ctx;
+        if (!nativeContext) {
+            throw new Error("Invalid LlamaContext object: _ctx is missing. Cannot tokenize multimodal input.");
+        }
+
+        // Create bitmap collection
+        const bitmaps = this.createBitmapCollection();
+
+        try {
+            // Array to keep track of bitmaps for proper cleanup
+            const createdBitmaps: MultiBitmap[] = [];
+            
+            // Load each media item and add to collection
+            for (const mediaBuffer of media) {
+                try {
+                    const bitmap = this.loadMediaFromBuffer(context, mediaBuffer);
+                    
+                    if (bitmap.isAudio()) {
+                        // For audio content, ensure the model supports it
+                        if (!this.supportsAudio(context)) {
+                            bitmap.dispose(); // Clean up this bitmap
+                            throw new Error("Audio input was detected but this model doesn't support audio processing.");
+                        }
+                    }
+                    
+                    createdBitmaps.push(bitmap);
+                    bitmaps.addBitmap(bitmap);
+                } catch (error: any) {
+                    // Clean up any bitmaps that were already created
+                    createdBitmaps.forEach(b => b.dispose());
+                    throw new Error(`Failed to process media for tokenization: ${error.message || error}`);
+                }
+            }
+
+            // Tokenize using the native function (enhanced version includes tokens field)
+            const result = this._bindings.multimodalTokenize(nativeContext, text, bitmaps);
+            
+            // Clean up individual bitmaps
+            createdBitmaps.forEach(bitmap => bitmap.dispose());
+            
+            return result;
+        } catch (error) {
+            // Make sure to clean up resources even if tokenization fails
+            bitmaps.dispose();
+            throw error;
+        }
+    }
+    
+    /**
+     * Extract vision encoder state from a processed image for caching
+     * @param context The LlamaContext to use
+     * @param bitmap The MultiBitmap containing the processed image
+     * @returns Vision encoder state object for caching
+     */
+    public extractVisionState(context: LlamaContext, bitmap: MultiBitmap): VisionEncoderState {
+        const nativeContext = context._ctx;
+        if (!nativeContext) {
+            throw new Error("Invalid LlamaContext object: _ctx is missing. Cannot extract vision state.");
+        }
+
+        if (typeof this._bindings.multimodalExtractVisionState !== 'function') {
+            throw new Error("multimodalExtractVisionState is not supported by the current bindings. Ensure the native addon is compiled with multimodal support and is up to date.");
+        }
+
+        return this._bindings.multimodalExtractVisionState(nativeContext, bitmap);
+    }
+    
+    /**
+     * Load and apply vision encoder state from cached data
+     * @param context The LlamaContext to use
+     * @param visionState The cached vision encoder state
+     * @returns Recreated MultiBitmap with vision encoder state applied
+     */
+    public loadVisionState(context: LlamaContext, visionState: VisionEncoderState): MultiBitmap {
+        const nativeContext = context._ctx;
+        if (!nativeContext) {
+            throw new Error("Invalid LlamaContext object: _ctx is missing. Cannot load vision state.");
+        }
+
+        if (typeof this._bindings.multimodalLoadVisionState !== 'function') {
+            throw new Error("multimodalLoadVisionState is not supported by the current bindings. Ensure the native addon is compiled with multimodal support and is up to date.");
+        }
+
+        return this._bindings.multimodalLoadVisionState(nativeContext, visionState);
+    }
+    
+    /**
+     * Serialize vision encoder state to a binary buffer for efficient storage
+     * @param visionState The vision encoder state to serialize
+     * @returns Binary buffer containing serialized state
+     */
+    public serializeVisionState(visionState: VisionEncoderState): Buffer {
+        if (typeof this._bindings.multimodalSerializeVisionState !== 'function') {
+            throw new Error("multimodalSerializeVisionState is not supported by the current bindings. Ensure the native addon is compiled with multimodal support and is up to date.");
+        }
+
+        return this._bindings.multimodalSerializeVisionState(visionState);
+    }
+    
+    /**
+     * Deserialize vision encoder state from a binary buffer
+     * @param buffer Binary buffer containing serialized vision state
+     * @returns Deserialized vision encoder state object
+     */
+    public deserializeVisionState(buffer: Buffer): VisionEncoderState {
+        if (typeof this._bindings.multimodalDeserializeVisionState !== 'function') {
+            throw new Error("multimodalDeserializeVisionState is not supported by the current bindings. Ensure the native addon is compiled with multimodal support and is up to date.");
+        }
+
+        return this._bindings.multimodalDeserializeVisionState(buffer);
     }
     
     /**

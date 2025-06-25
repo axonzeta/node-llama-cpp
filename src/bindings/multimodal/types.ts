@@ -33,6 +33,14 @@ export interface MultiBitmap {
     isAudio(): boolean;
     
     /**
+     * Extract tokens from this bitmap with the given context text
+     * @param context The LlamaContext to use for tokenization
+     * @param text The context text for tokenization
+     * @returns Array of token IDs for this media object
+     */
+    getTokens(context: any, text: string): number[];
+    
+    /**
      * Release resources associated with this bitmap
      */
     dispose(): void;
@@ -78,4 +86,54 @@ export interface MultimodalTokenizeResult {
          */
         imageTokens?: number[];
     }[];
+    
+    /**
+     * All tokens as a flat array (new field)
+     */
+    tokens: number[];
+}
+
+/**
+ * Vision encoder state for caching processed media
+ */
+export interface VisionEncoderState {
+    /**
+     * Type identifier for the state object
+     */
+    type: "visionEncoderState";
+    
+    /**
+     * Version of the state format
+     */
+    version: string;
+    
+    /**
+     * Width of the original image
+     */
+    width: number;
+    
+    /**
+     * Height of the original image
+     */
+    height: number;
+    
+    /**
+     * Bitmap ID for identification
+     */
+    bitmapId?: string;
+    
+    /**
+     * Raw bitmap data (RGB format)
+     */
+    bitmapData: Buffer;
+    
+    /**
+     * Timestamp when the state was created
+     */
+    timestamp: number;
+    
+    /**
+     * Model identifier for compatibility checking
+     */
+    modelId: string;
 }
