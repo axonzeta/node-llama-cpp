@@ -57,10 +57,10 @@ jobs:
       matrix:
         config:
           - name: "Windows for x64"
-            os: windows-2019
+            os: windows-2025   
             artifact: "win-x64"
           - name: "Windows for Arm"
-            os: windows-2022
+            os: windows-2025
             artifact: "win-arm"
           - name: "Ubuntu"
             os: ubuntu-22.04
