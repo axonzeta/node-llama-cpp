@@ -656,51 +656,14 @@ async function main() {
 main();
 ```
 
-### Token Extraction for Advanced Use Cases
+### Memory Management
 
-For advanced use cases where you need direct access to tokens from media objects, you can extract tokens that can be used in subsequent calls:
+Make sure to dispose of bitmaps and collections when they're no longer needed:
 
 ```typescript
-// Method 1: Extract all tokens as a flat array from multimodal input
-const tokens = await llama.multimodal.getTokens(context, "Describe this image:", [imageBuffer]);
-console.log("Extracted tokens:", tokens);
-
-// Use tokens in sequence evaluation
-const sequence = context.getSequence();
-sequence.setTokens(tokens);
-
-// Method 2: Get tokens from tokenize result (includes both chunks and flat array)
-const tokenizeResult = await llama.multimodal.tokenizeMedia(context, "Describe this image:", [imageBuffer]);
-console.log("Flat tokens:", tokenizeResult.tokens); // New: flat array of all tokens
-console.log("Detailed chunks:", tokenizeResult.chunks); // Original: chunk structure
-
-// Method 3: Extract tokens from individual media objects
-const imageBuffer = await fs.promises.readFile(path.join(__dirname, "image.jpg"));
-const bitmap = llama.multimodal.loadMediaFromBuffer(context, imageBuffer);
-bitmap.setId("my-image-1");
-
-// Get tokens from this specific bitmap
-const bitmapTokens = bitmap.getTokens(context, "What do you see?");
-console.log("Bitmap tokens:", bitmapTokens);
-
-// Combine with other tokens
-const textTokens = model.tokenize("Additional context: ");
-const combinedTokens = [...textTokens, ...bitmapTokens];
-sequence.setTokens(combinedTokens);
+bitmap.dispose();
+bitmaps.dispose();
 ```
-
-**Token Types:**
-- **Text tokens**: Actual token IDs from the model's vocabulary
-- **Image tokens**: Placeholder value `-1` (actual embeddings computed during evaluation)
-- **Audio tokens**: Placeholder value `-2` (actual embeddings computed during evaluation)
-
-**Use Cases:**
-- Caching tokenized media for reuse across multiple contexts
-- Manual token manipulation and combination
-- Building custom evaluation pipelines
-- Token-level analysis and debugging
-
-For detailed examples and API reference, see the [Token Extraction Guide](../examples/multimodal-token-extraction.md).
 
 ## API Reference
 

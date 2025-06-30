@@ -14,15 +14,8 @@ Napi::Value addonCreateMultimodalBitmaps(const Napi::CallbackInfo& info);
 Napi::Value addonAddBitmapToMultimodalBitmaps(const Napi::CallbackInfo& info);
 Napi::Value addonGetMultimodalBitmapData(const Napi::CallbackInfo& info);
 Napi::Value addonMultimodalTokenize(const Napi::CallbackInfo& info);
-Napi::Value addonMultimodalGetTokens(const Napi::CallbackInfo& info);
 Napi::Value addonMultimodalEvaluateChunks(const Napi::CallbackInfo& info);
 Napi::Value addonMultimodalTokenizeAndEvaluate(const Napi::CallbackInfo& info);
 Napi::Value addonInitMultimodalBitmapFromAudio(const Napi::CallbackInfo& info);
 Napi::Value addonMultimodalSupportsAudio(const Napi::CallbackInfo& info);
 Napi::Value addonMultimodalGetAudioBitrate(const Napi::CallbackInfo& info);
-
-// Vision encoder state functions
-Napi::Value addonMultimodalExtractVisionState(const Napi::CallbackInfo& info);
-Napi::Value addonMultimodalLoadVisionState(const Napi::CallbackInfo& info);
-Napi::Value addonMultimodalSerializeVisionState(const Napi::CallbackInfo& info);
-Napi::Value addonMultimodalDeserializeVisionState(const Napi::CallbackInfo& info);

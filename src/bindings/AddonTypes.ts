@@ -1,5 +1,5 @@
 import {Token} from "../types.js";
-import {MultiBitmap, MultiBitmaps, MultimodalTokenizeResult, VisionEncoderState} from "./multimodal/types.js";
+import {MultiBitmap, MultiBitmaps, MultimodalTokenizeResult} from "./multimodal/types.js";
 
 
 export type BindingModule = {
@@ -103,23 +103,10 @@ export type BindingModule = {
     initMultimodalBitmapFromAudio(context: object, audioBuffer: Float32Array): MultiBitmap;
     createMultimodalBitmaps(): MultiBitmaps;
     multimodalTokenize(context: object, text: string, bitmaps: MultiBitmaps): MultimodalTokenizeResult;
-    multimodalGetTokens(context: object, text: string, bitmaps: MultiBitmaps): number[];
     multimodalEvaluateChunks(context: object, tokenizeResult: MultimodalTokenizeResult): object;
     multimodalTokenizeAndEvaluate(context: object, text: string, bitmaps: MultiBitmaps): object;
     multimodalSupportsAudio(context: object): boolean;
     multimodalGetAudioBitrate(context: object): number;
-    
-    // Vision encoder state functions
-    multimodalExtractVisionState(context: object, bitmap: MultiBitmap): VisionEncoderState;
-    multimodalLoadVisionState(context: object, visionState: VisionEncoderState): MultiBitmap;
-    multimodalSerializeVisionState(visionState: VisionEncoderState): Buffer;
-    multimodalDeserializeVisionState(buffer: Buffer): VisionEncoderState;
-    
-    // Vision encoder state functions
-    multimodalExtractVisionState(context: object, bitmap: MultiBitmap): VisionEncoderState;
-    multimodalLoadVisionState(context: object, visionState: VisionEncoderState): MultiBitmap;
-    multimodalSerializeVisionState(visionState: VisionEncoderState): Buffer;
-    multimodalDeserializeVisionState(buffer: Buffer): VisionEncoderState;
 };
 
 export type AddonModel = {
